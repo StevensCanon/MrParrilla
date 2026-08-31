@@ -162,7 +162,7 @@ export default function DashboardPage() {
 
   return (
     <main className="max-w-5xl mx-auto p-6 flex flex-col gap-5">
-      <h1 className="font-serif text-xl">Dashboard</h1>
+      <h1 className=" text-xl">Dashboard</h1>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard icon={TrendingUp} label="Ingresos (14 días)" value={money(totals.ingresos)} tone="good" />
@@ -184,7 +184,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="bg-white border border-[#E4DED3] rounded-sm shadow-sm p-4">
-        <h3 className="font-serif text-base mb-3">Ingresos vs. egresos — últimos 14 días</h3>
+        <h3 className=" text-base mb-3">Ingresos vs. egresos — últimos 14 días</h3>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E4DED3" />
@@ -198,7 +198,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="bg-white border border-[#E4DED3] rounded-sm shadow-sm p-4">
-        <h3 className="font-serif text-base mb-3">Movimientos recientes</h3>
+        <h3 className="  text-base mb-3">Movimientos recientes</h3>
         {recientes.length === 0 ? (
           <p className="text-sm text-[#8A8375]">Aún no hay transacciones registradas.</p>
         ) : (

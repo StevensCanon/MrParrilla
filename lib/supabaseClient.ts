@@ -13,11 +13,7 @@ export function createAuthedClient(token: string) {
     supabaseUrl,
     supabaseAnonKey,
     {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
+      accessToken: async () => token,
     }
   );
 }

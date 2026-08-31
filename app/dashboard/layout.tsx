@@ -1,17 +1,13 @@
 "use client";
+import { BiSolidDashboard } from "react-icons/bi";
+import { GiForkKnifeSpoon } from "react-icons/gi";
+import { IoIosListBox } from "react-icons/io";
+import { IoChatboxEllipses } from "react-icons/io5";
+import { MdTableBar } from "react-icons/md";
+import { FaKitchenSet } from "react-icons/fa6";
+import Image from "next/image";
 
-import {
-  LayoutDashboard,
-  Utensils,
-  Package,
-  ClipboardList,
-  Table2,
-  Users,
-  Wallet,
-  LogOut,
-  Settings,
-  ChefHat,
-} from "lucide-react";
+import { Users, Wallet, LogOut, Settings } from "lucide-react";
 
 import {
   SidebarProvider,
@@ -34,27 +30,32 @@ const menuPrincipal = [
   {
     title: "Dashboard",
     href: "/dashboard",
-    icon: LayoutDashboard,
+    icon: BiSolidDashboard,
   },
   {
     title: "Platos",
     href: "/dashboard/platos",
-    icon: Utensils,
+    icon: GiForkKnifeSpoon,
   },
   {
     title: "Inventario",
     href: "/dashboard/inventario",
-    icon: Package,
+    icon: IoIosListBox,
   },
   {
     title: "Pedidos",
     href: "/dashboard/pedidos",
-    icon: ClipboardList,
+    icon: IoChatboxEllipses,
   },
   {
     title: "Mesas",
     href: "/dashboard/mesas",
-    icon: Table2,
+    icon: MdTableBar,
+  },
+  {
+    title: "Cocina",
+    href: "/dashboard/cocina",
+    icon: FaKitchenSet,
   },
 ];
 
@@ -90,18 +91,22 @@ export default function DashboardLayout({
         {/* HEADER */}
         <SidebarHeader className="border-b border-[#E4DED3]">
           <div className="flex h-14 items-center gap-3 px-2">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-[#22201D] text-white">
-              <ChefHat size={19} />
+            <div className="flex  shrink-0 items-center justify-center rounded-sm  text-white">
+              <Image
+                src="/Logo.png"
+                alt="Logo"
+                width={60}
+                height={60}
+                className=" object-contain"
+              />
             </div>
 
             <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-              <span className="font-serif text-sm font-semibold text-[#22201D]">
-                Restaurante
+              <span className="text-sm font-bold text-black">
+                MrParrilla
               </span>
 
-              <span className="text-[10px] uppercase tracking-wider text-[#8A8375]">
-                Administración
-              </span>
+              <span className="text-[10px] uppercase tracking-wider text-[#8A8375]"></span>
             </div>
           </div>
         </SidebarHeader>
@@ -188,20 +193,16 @@ export default function DashboardLayout({
       </Sidebar>
 
       {/* ÁREA PRINCIPAL */}
-      <SidebarInset>
+      <SidebarInset className="text-white">
         {/* TOPBAR */}
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-[#E4DED3] bg-[#F8F6F1] px-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-3  border-white border-b-4 bg-red-800 px-4">
           <SidebarTrigger />
 
-          <div className="h-5 w-px bg-[#E4DED3]" />
+          <div className="h-5 w-px bg-white" />
 
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-[#22201D]">
-              Administración
-            </span>
-
-            <span className="text-[10px] text-[#8A8375]">
-              Gestión del restaurante
+            <span className="text-sm font-semibold text-white">
+              Gestion del Restaurante
             </span>
           </div>
         </header>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -11,6 +10,8 @@ import {
   Trash2,
   Power,
   Utensils,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { createAuthedClient } from "@/lib/supabaseClient";
@@ -59,12 +60,7 @@ type FormularioPlato = {
   disponible: boolean;
 };
 
-const categorias = [
-    "desayuno",
-    "almuerzo",
-    "bebida",
-    "adicional",
-  ];
+const categorias = ["desayuno", "almuerzo", "bebida", "adicional"];
 
 const formularioInicial: FormularioPlato = {
   nombre: "",
@@ -73,17 +69,37 @@ const formularioInicial: FormularioPlato = {
   disponible: true,
 };
 
-const money = (n: number) =>
+const PLATOS_POR_PAGINA = 15;
+
+const money = (valor: number) =>
   new Intl.NumberFormat("es-CO", {
     style: "currency",
     currency: "COP",
     maximumFractionDigits: 0,
-  }).format(Math.round(Number(n) || 0));
+  }).format(Math.round(Number(valor) || 0));
 
-const categoriaLabel = (categoria: string) => {
-  return categoria
+const categoriaLabel = (categoria: string) =>
+  categoria
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letra) => letra.toUpperCase());
+
+const categoriaDotClass = (categoria: string) => {
+  switch (categoria) {
+    case "desayuno":
+      return "bg-amber-500";
+
+    case "almuerzo":
+      return "bg-blue-500";
+
+    case "bebida":
+      return "bg-teal-500";
+
+    case "adicional":
+      return "bg-violet-500";
+
+    default:
+      return "bg-[#B6B1A2]";
+  }
 };
 
 export default function PlatosPage() {
@@ -97,6 +113,7 @@ export default function PlatosPage() {
 
   const [busqueda, setBusqueda] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [pagina, setPagina] = useState(1);
 
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [platoEditando, setPlatoEditando] = useState<Plato | null>(null);
@@ -104,11 +121,10 @@ export default function PlatosPage() {
   const [formulario, setFormulario] =
     useState<FormularioPlato>(formularioInicial);
 
-  /**
-   * ============================================================
-   * OBTENER TOKEN
-   * ============================================================
-   */
+  /* ============================================================
+     AUTENTICACIÓN
+     ============================================================ */
+
   const obtenerToken = useCallback(() => {
     const sesionGuardada = sessionStorage.getItem("sesion");
 
@@ -131,11 +147,10 @@ export default function PlatosPage() {
     }
   }, []);
 
-  /**
-   * ============================================================
-   * CARGAR PLATOS
-   * ============================================================
-   */
+  /* ============================================================
+     CARGAR PLATOS
+     ============================================================ */
+
   const cargarPlatos = useCallback(async () => {
     const token = obtenerToken();
 
@@ -149,14 +164,11 @@ export default function PlatosPage() {
 
       const { data, error: errorSupabase } = await supabase
         .from("platos")
-        .select(
-          "id, nombre, categoria, precio, disponible, creado_en",
-        )
+        .select("id, nombre, categoria, precio, disponible, creado_en")
         .order("nombre", { ascending: true });
 
       if (errorSupabase) {
         console.error("Error cargando platos:", errorSupabase);
-
         setError(errorSupabase.message);
         return;
       }
@@ -171,29 +183,18 @@ export default function PlatosPage() {
     }
   }, [obtenerToken, router]);
 
-  /**
-   * ============================================================
-   * CARGA INICIAL
-   *
-   * Se ejecuta solamente después de que el componente está
-   * montado en el navegador.
-   * ============================================================
-   */
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void cargarPlatos();
     }, 0);
 
-    return () => {
-      window.clearTimeout(timer);
-    };
+    return () => window.clearTimeout(timer);
   }, [cargarPlatos]);
 
-  /**
-   * ============================================================
-   * FILTRAR PLATOS
-   * ============================================================
-   */
+  /* ============================================================
+     FILTROS
+     ============================================================ */
+
   const platosFiltrados = useMemo(() => {
     const texto = busqueda.toLowerCase().trim();
 
@@ -210,11 +211,48 @@ export default function PlatosPage() {
     });
   }, [platos, busqueda, filtroCategoria]);
 
-  /**
-   * ============================================================
-   * ABRIR CREAR
-   * ============================================================
-   */
+  useEffect(() => {
+    setPagina(1);
+  }, [busqueda, filtroCategoria]);
+
+  /* ============================================================
+     PAGINACIÓN
+     ============================================================ */
+
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(platosFiltrados.length / PLATOS_POR_PAGINA),
+  );
+
+  useEffect(() => {
+    if (pagina > totalPaginas) {
+      setPagina(totalPaginas);
+    }
+  }, [pagina, totalPaginas]);
+
+  const platosPagina = useMemo(() => {
+    const inicio = (pagina - 1) * PLATOS_POR_PAGINA;
+
+    return platosFiltrados.slice(
+      inicio,
+      inicio + PLATOS_POR_PAGINA,
+    );
+  }, [platosFiltrados, pagina]);
+
+  const rangoInicio =
+    platosFiltrados.length === 0
+      ? 0
+      : (pagina - 1) * PLATOS_POR_PAGINA + 1;
+
+  const rangoFin = Math.min(
+    pagina * PLATOS_POR_PAGINA,
+    platosFiltrados.length,
+  );
+
+  /* ============================================================
+     FORMULARIO
+     ============================================================ */
+
   const abrirCrear = () => {
     setPlatoEditando(null);
     setFormulario({ ...formularioInicial });
@@ -222,11 +260,6 @@ export default function PlatosPage() {
     setDialogoAbierto(true);
   };
 
-  /**
-   * ============================================================
-   * ABRIR EDITAR
-   * ============================================================
-   */
   const abrirEditar = (plato: Plato) => {
     setPlatoEditando(plato);
 
@@ -241,11 +274,10 @@ export default function PlatosPage() {
     setDialogoAbierto(true);
   };
 
-  /**
-   * ============================================================
-   * GUARDAR PLATO
-   * ============================================================
-   */
+  /* ============================================================
+     GUARDAR
+     ============================================================ */
+
   const guardarPlato = async () => {
     setError(null);
 
@@ -270,8 +302,6 @@ export default function PlatosPage() {
       return;
     }
 
-
-
     const token = obtenerToken();
 
     if (!token) {
@@ -291,9 +321,6 @@ export default function PlatosPage() {
         disponible: formulario.disponible,
       };
 
-      /**
-       * EDITAR
-       */
       if (platoEditando) {
         const { error: errorUpdate } = await supabase
           .from("platos")
@@ -305,12 +332,7 @@ export default function PlatosPage() {
           setError(errorUpdate.message);
           return;
         }
-      }
-
-      /**
-       * CREAR
-       */
-      else {
+      } else {
         const { error: errorInsert } = await supabase
           .from("platos")
           .insert(datos);
@@ -335,11 +357,10 @@ export default function PlatosPage() {
     }
   };
 
-  /**
-   * ============================================================
-   * CAMBIAR DISPONIBILIDAD
-   * ============================================================
-   */
+  /* ============================================================
+     DISPONIBILIDAD
+     ============================================================ */
+
   const cambiarDisponibilidad = async (plato: Plato) => {
     const token = obtenerToken();
 
@@ -350,7 +371,6 @@ export default function PlatosPage() {
 
     try {
       const supabase = createAuthedClient(token);
-
       const nuevaDisponibilidad = !plato.disponible;
 
       const { error: errorUpdate } = await supabase
@@ -371,13 +391,13 @@ export default function PlatosPage() {
       }
 
       setPlatos((actuales) =>
-        actuales.map((p) =>
-          p.id === plato.id
+        actuales.map((actual) =>
+          actual.id === plato.id
             ? {
-                ...p,
+                ...actual,
                 disponible: nuevaDisponibilidad,
               }
-            : p,
+            : actual,
         ),
       );
     } catch (err) {
@@ -386,11 +406,10 @@ export default function PlatosPage() {
     }
   };
 
-  /**
-   * ============================================================
-   * ELIMINAR PLATO
-   * ============================================================
-   */
+  /* ============================================================
+     ELIMINAR
+     ============================================================ */
+
   const eliminarPlato = async (plato: Plato) => {
     const confirmar = window.confirm(
       `¿Seguro que deseas eliminar "${plato.nombre}"?`,
@@ -415,13 +434,12 @@ export default function PlatosPage() {
 
       if (errorDelete) {
         console.error("Error eliminando plato:", errorDelete);
-
         setError(errorDelete.message);
         return;
       }
 
       setPlatos((actuales) =>
-        actuales.filter((p) => p.id !== plato.id),
+        actuales.filter((actual) => actual.id !== plato.id),
       );
     } catch (err) {
       console.error(err);
@@ -429,355 +447,453 @@ export default function PlatosPage() {
     }
   };
 
-  /**
-   * ============================================================
-   * LOADING
-   * ============================================================
-   */
+  /* ============================================================
+     LOADING
+     ============================================================ */
+
   if (loading) {
     return (
-      <main className="p-6">
-        <div className="text-sm font-mono text-[#8A8375]">
+      <main className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
+        <div className="text-sm text-[#8A8577]">
           Cargando platos…
         </div>
       </main>
     );
   }
 
-  /**
-   * ============================================================
-   * UI
-   * ============================================================
-   */
+  const guardarDeshabilitado =
+    guardando ||
+    !formulario.nombre.trim() ||
+    !formulario.categoria;
+
+  /* ============================================================
+     UI
+     ============================================================ */
+
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-6">
-      {/* ENCABEZADO */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="font-serif text-2xl text-[#22201D]">
-            Platos
-          </h1>
+    <main className="min-h-screen bg-[#F7F6F3]">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
 
-          <p className="mt-1 text-sm text-[#8A8375]">
-            Administra el menú y la disponibilidad de tus platos.
-          </p>
-        </div>
+        {/* ENCABEZADO */}
 
-        <Button
-          type="button"
-          onClick={abrirCrear}
-          className="bg-[#22201D] text-white hover:bg-[#3A3732]"
-        >
-          <Plus size={16} />
-          Nuevo plato
-        </Button>
-      </div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-[#211F1B] sm:text-[28px]">
+              Platos
+            </h1>
 
-      {/* ERROR */}
-      {error && (
-        <div className="flex items-center justify-between border border-[#E7B8AD] bg-[#FFF5F2] px-4 py-3 text-sm text-[#A3402A]">
-          <span>{error}</span>
+            <p className="mt-1 text-sm text-[#8A8577]">
+              Administra el menú y la disponibilidad de tus platos.
+            </p>
+          </div>
 
-          <button
+          <Button
             type="button"
-            onClick={() => setError(null)}
-            className="text-xs underline"
+            onClick={abrirCrear}
+            className="w-fit gap-1.5 rounded-full bg-black px-4 text-white shadow-none hover:bg-[#211F1B]/90 cursor-pointer"
           >
-            cerrar
-          </button>
-        </div>
-      )}
-
-      {/* FILTROS */}
-      <div className="flex flex-col gap-3 border border-[#E4DED3] bg-white p-4 shadow-sm sm:flex-row">
-        <div className="relative flex-1">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8375]"
-          />
-
-          <Input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar plato..."
-            className="border-[#E4DED3] pl-9"
-          />
+            <Plus size={16} strokeWidth={2.5} />
+            Nuevo plato
+          </Button>
         </div>
 
-        <Select
-          value={filtroCategoria}
-          onValueChange={(value) =>
-            setFiltroCategoria(value ?? "todas")
-          }
-        >
-          <SelectTrigger className="w-full border-[#E4DED3] sm:w-[210px]">
-            <SelectValue placeholder="Categoría" />
-          </SelectTrigger>
+        {/* ERROR */}
 
-          <SelectContent>
-            <SelectItem value="todas">
-              Todas las categorías
-            </SelectItem>
+        {error && (
+          <div className="flex items-center justify-between rounded-[10px] bg-[#FBEAE8] px-4 py-3 text-sm text-[#C6433C]">
+            <span>{error}</span>
 
-            {categorias.map((categoria) => (
-              <SelectItem key={categoria} value={categoria}>
-                {categoriaLabel(categoria)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="ml-3 shrink-0 text-xs font-medium underline underline-offset-2"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
 
-      {/* TABLA */}
-      <div className="overflow-hidden border border-[#E4DED3] bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[750px] text-sm">
-            <thead>
-              <tr className="border-b border-[#E4DED3] bg-[#FAF8F4]">
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[#8A8375]">
-                  Plato
-                </th>
+        {/* BUSCADOR + FILTROS */}
 
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[#8A8375]">
-                  Categoría
-                </th>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 rounded-[10px] border border-[#E7E4DC] bg-white px-3 py-2 sm:w-72">
+            <Search
+              size={16}
+              className="shrink-0 text-[#8A8577]"
+            />
 
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[#8A8375]">
-                  Precio
-                </th>
+            <input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar plato"
+              className="w-full bg-transparent text-sm text-[#211F1B] outline-none placeholder:text-[#B6B1A2]"
+            />
+          </div>
 
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] sm:pb-0 [&::-webkit-scrollbar]:hidden">
+            {["todas", ...categorias].map((categoria) => {
+              const activo = filtroCategoria === categoria;
 
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-[#8A8375]">
-                  Estado
-                </th>
+              return (
+                <button
+                  key={categoria}
+                  type="button"
+                  onClick={() => setFiltroCategoria(categoria)}
+                  className={`
+                    shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5
+                    text-[13px] font-medium transition-colors
+                    ${
+                      activo
+                        ? "border-[#211F1B] bg-[#211F1B] text-white"
+                        : "border-[#E7E4DC] bg-transparent text-[#8A8577] hover:bg-[#EFEDE6]"
+                    }
+                  `}
+                >
+                  {categoria === "todas"
+                    ? "Todas"
+                    : categoriaLabel(categoria)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-                <th className="w-12 px-4 py-3" />
-              </tr>
-            </thead>
+        {/* TABLA */}
 
-            <tbody>
-              {platosFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <Utensils
-                        size={28}
-                        className="text-[#B8B1A4]"
-                      />
+        <div className="overflow-hidden rounded-[14px] border border-[#E7E4DC] bg-white">
 
-                      <p className="text-sm font-medium text-[#22201D]">
-                        No hay platos
-                      </p>
+          {/* HEADER */}
 
-                      <p className="text-xs text-[#8A8375]">
-                        {busqueda ||
-                        filtroCategoria !== "todas"
-                          ? "No encontramos platos con esos filtros."
-                          : "Comienza agregando tu primer plato."}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                platosFiltrados.map((plato) => (
-                  <tr
-                    key={plato.id}
-                    className="border-b border-[#EFEAE0] last:border-0 hover:bg-[#FCFBF8]"
-                  >
-                    {/* PLATO */}
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-[#22201D]">
-                        {plato.nombre}
-                      </div>
-                    </td>
+          <div className="hidden items-center gap-4 border-b border-[#E7E4DC] px-5 py-3 text-[13px] text-[#8A8577] sm:flex">
+            <span className="w-2 shrink-0" />
 
-                    {/* CATEGORIA */}
-                    <td className="px-4 py-3 text-[#6F695E]">
+            <span className="flex-1">
+              Plato
+            </span>
+
+            <span className="w-28 shrink-0">
+              Categoría
+            </span>
+
+            <span className="w-24 shrink-0 text-right">
+              Precio
+            </span>
+
+            <span className="w-16 shrink-0 text-center">
+              Estado
+            </span>
+
+            <span className="w-8 shrink-0" />
+          </div>
+
+          {/* SIN RESULTADOS */}
+
+          {platosPagina.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
+              <Utensils
+                size={26}
+                className="text-[#B6B1A2]"
+              />
+
+              <p className="text-sm font-medium text-[#211F1B]">
+                No hay platos
+              </p>
+
+              <p className="text-[13px] text-[#8A8577]">
+                {busqueda || filtroCategoria !== "todas"
+                  ? "No encontramos platos con esos filtros."
+                  : "Comienza agregando tu primer plato."}
+              </p>
+            </div>
+          ) : (
+            platosPagina.map((plato) => (
+              <div
+                key={plato.id}
+                className="flex items-center gap-3 border-b border-[#E7E4DC] px-4 py-3 last:border-0 hover:bg-black/[0.015] sm:gap-4 sm:px-5"
+              >
+
+                {/* CATEGORÍA */}
+
+                <span
+                  className={`
+                    hidden size-2 shrink-0 rounded-full sm:block
+                    ${categoriaDotClass(plato.categoria)}
+                  `}
+                />
+
+                {/* NOMBRE */}
+
+                <button
+                  type="button"
+                  onClick={() => abrirEditar(plato)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <span className="block truncate text-[15px] font-medium text-[#211F1B]">
+                    {plato.nombre}
+                  </span>
+
+                  <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-[#8A8577] sm:hidden">
+                    <span>
                       {categoriaLabel(plato.categoria)}
-                    </td>
+                    </span>
 
-                    {/* PRECIO */}
-                    <td className="px-4 py-3 text-right font-mono">
+                    <span>·</span>
+
+                    <span className="tabular-nums">
                       {money(plato.precio)}
-                    </td>
+                    </span>
+                  </span>
+                </button>
 
-                    {/* ESTADO */}
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        type="button"
+                {/* CATEGORÍA DESKTOP */}
+
+                <span className="hidden w-28 shrink-0 truncate text-sm text-[#8A8577] sm:block">
+                  {categoriaLabel(plato.categoria)}
+                </span>
+
+                {/* PRECIO DESKTOP */}
+
+                <span className="hidden w-24 shrink-0 text-right text-sm tabular-nums text-[#8A8577] sm:block">
+                  {money(plato.precio)}
+                </span>
+
+                {/* DISPONIBILIDAD */}
+
+                <div className="flex w-16 shrink-0 justify-center">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      cambiarDisponibilidad(plato)
+                    }
+                    aria-pressed={plato.disponible}
+                    aria-label={
+                      plato.disponible
+                        ? "Marcar no disponible"
+                        : "Marcar disponible"
+                    }
+                    className={`
+                      relative h-6 w-11 shrink-0 rounded-full
+                      transition-colors
+                      ${
+                        plato.disponible
+                          ? "bg-[#2FA36B]"
+                          : "bg-[#D8D4C8]"
+                      }
+                    `}
+                  >
+                    <span
+                      className={`
+                        absolute top-1 size-4 rounded-full bg-white
+                        shadow transition-all
+                        ${
+                          plato.disponible
+                            ? "left-[22px]"
+                            : "left-1"
+                        }
+                      `}
+                    />
+                  </button>
+                </div>
+
+                {/* ACCIONES */}
+
+                <div className="w-8 shrink-0 text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      aria-label={`Acciones para ${plato.nombre}`}
+                      className="inline-flex size-8 items-center justify-center rounded-full text-[#8A8577] transition hover:bg-black/[0.04] focus:outline-none"
+                    >
+                      <MoreHorizontal size={17} />
+                    </DropdownMenuTrigger>
+
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-44 rounded-[12px]"
+                    >
+                      <DropdownMenuItem
+                        onClick={() => abrirEditar(plato)}
+                      >
+                        <Pencil size={15} />
+                        Editar
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
                         onClick={() =>
                           cambiarDisponibilidad(plato)
                         }
-                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                          plato.disponible
-                            ? "bg-[#E8F1EC] text-[#2E6B4F]"
-                            : "bg-[#F1EEEA] text-[#8A8375]"
-                        }`}
                       >
-                        <span
-                          className={`mr-1.5 size-1.5 rounded-full ${
-                            plato.disponible
-                              ? "bg-[#2E6B4F]"
-                              : "bg-[#8A8375]"
-                          }`}
-                        />
+                        <Power size={15} />
 
                         {plato.disponible
-                          ? "Disponible"
-                          : "No disponible"}
-                      </button>
-                    </td>
+                          ? "Desactivar"
+                          : "Activar"}
+                      </DropdownMenuItem>
 
-                    {/* ACCIONES */}
-                    <td className="px-4 py-3 text-right">
-                      <DropdownMenu>
-                        {/*
-                         * IMPORTANTE:
-                         *
-                         * DropdownMenuTrigger de Base UI ya genera
-                         * su propio botón.
-                         *
-                         * NO colocar <Button> ni <button> dentro.
-                         */}
-                        <DropdownMenuTrigger
-                          aria-label={`Acciones para ${plato.nombre}`}
-                          className="inline-flex size-8 items-center justify-center rounded-md text-[#6F695E] transition hover:bg-[#F1EEEA] hover:text-[#22201D] focus:outline-none focus:ring-2 focus:ring-[#D8D0C3]"
-                        >
-                          <MoreHorizontal size={17} />
-                        </DropdownMenuTrigger>
+                      <DropdownMenuSeparator />
 
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-44"
-                        >
-                          <DropdownMenuItem
-                            onClick={() => abrirEditar(plato)}
-                          >
-                            <Pencil size={15} />
-                            Editar
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            onClick={() =>
-                              cambiarDisponibilidad(plato)
-                            }
-                          >
-                            <Power size={15} />
-
-                            {plato.disponible
-                              ? "Desactivar"
-                              : "Activar"}
-                          </DropdownMenuItem>
-
-                          <DropdownMenuSeparator />
-
-                          <DropdownMenuItem
-                            onClick={() =>
-                              eliminarPlato(plato)
-                            }
-                            variant="destructive"
-                          >
-                            <Trash2 size={15} />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                      <DropdownMenuItem
+                        onClick={() => eliminarPlato(plato)}
+                        variant="destructive"
+                      >
+                        <Trash2 size={15} />
+                        Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
-        {/* PIE */}
-        <div className="border-t border-[#E4DED3] bg-[#FAF8F4] px-4 py-3 text-xs text-[#8A8375]">
-          Mostrando {platosFiltrados.length} de {platos.length}{" "}
-          platos
+        {/* PAGINACIÓN */}
+
+        <div className="flex flex-col items-center justify-between gap-3 px-1 sm:flex-row">
+          <p className="text-[13px] text-[#8A8577]">
+            {platosFiltrados.length === 0
+              ? "Sin resultados"
+              : `Mostrando ${rangoInicio}–${rangoFin} de ${platosFiltrados.length} platos`}
+          </p>
+
+          {totalPaginas > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setPagina((actual) =>
+                    Math.max(1, actual - 1),
+                  )
+                }
+                disabled={pagina === 1}
+                className="inline-flex size-8 items-center justify-center rounded-full border border-[#E7E4DC] text-[#211F1B] transition hover:bg-[#EFEDE6] disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Página anterior"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <span className="px-1 text-[13px] text-[#8A8577]">
+                Página {pagina} de {totalPaginas}
+              </span>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setPagina((actual) =>
+                    Math.min(totalPaginas, actual + 1),
+                  )
+                }
+                disabled={pagina === totalPaginas}
+                className="inline-flex size-8 items-center justify-center rounded-full border border-[#E7E4DC] text-[#211F1B] transition hover:bg-[#EFEDE6] disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Página siguiente"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* ========================================================
-          DIALOG CREAR / EDITAR
+          DIALOG
           ======================================================== */}
+
       <Dialog
         open={dialogoAbierto}
         onOpenChange={setDialogoAbierto}
       >
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle className="font-serif">
-              {platoEditando ? "Editar plato" : "Nuevo plato"}
+        <DialogContent className="gap-0 overflow-hidden rounded-[16px] bg-white p-0 sm:max-w-[460px]">
+
+          <DialogHeader className="px-6 pb-3 pt-6">
+            <DialogTitle className="text-[18px] font-semibold text-[#211F1B]">
+              {platoEditando
+                ? "Editar plato"
+                : "Nuevo plato"}
             </DialogTitle>
 
-            <DialogDescription>
+            <DialogDescription className="text-sm text-[#8A8577]">
               {platoEditando
                 ? "Modifica la información del plato."
                 : "Agrega un nuevo plato al menú."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-4 py-2">
-            {/* NOMBRE */}
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="nombre"
-                className="text-sm font-medium"
-              >
-                Nombre
-              </label>
+          <div className="flex flex-col gap-4 px-6 py-2">
 
-              <Input
-                id="nombre"
-                value={formulario.nombre}
-                onChange={(e) =>
-                  setFormulario((actual) => ({
-                    ...actual,
-                    nombre: e.target.value,
-                  }))
-                }
-                placeholder="Ej. Hamburguesa clásica"
-              />
-            </div>
+            {/* ERROR */}
 
-            {/* CATEGORIA */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">
-                Categoría
-              </label>
+            {error && (
+              <div className="rounded-[10px] bg-[#FBEAE8] px-3.5 py-2.5 text-[13px] text-[#C6433C]">
+                {error}
+              </div>
+            )}
 
-              <Select
-                value={formulario.categoria}
-                onValueChange={(value) =>
-                  setFormulario((actual) => ({
-                    ...actual,
-                    categoria: value ?? "",
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona una categoría" />
-                </SelectTrigger>
+            {/* CAMPOS */}
 
-                <SelectContent>
-                  {categorias.map((categoria) => (
-                    <SelectItem
-                      key={categoria}
-                      value={categoria}
-                    >
-                      {categoriaLabel(categoria)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="overflow-hidden rounded-[12px] border border-[#E7E4DC]">
 
-            {/* PRECIO */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
+              {/* NOMBRE */}
+
+              <div className="flex items-center justify-between gap-3 border-b border-[#E7E4DC] px-4 py-3">
+                <label
+                  htmlFor="nombre"
+                  className="shrink-0 text-sm text-[#8A8577]"
+                >
+                  Nombre
+                </label>
+
+                <Input
+                  id="nombre"
+                  value={formulario.nombre}
+                  onChange={(e) =>
+                    setFormulario((actual) => ({
+                      ...actual,
+                      nombre: e.target.value,
+                    }))
+                  }
+                  placeholder="Ej. Hamburguesa clásica"
+                  className="h-auto border-none bg-transparent p-0 text-right text-[15px] text-[#211F1B] shadow-none focus-visible:ring-0"
+                />
+              </div>
+
+              {/* CATEGORÍA */}
+
+              <div className="flex items-center justify-between gap-3 border-b border-[#E7E4DC] px-4 py-3">
+                <span className="shrink-0 text-sm text-[#8A8577]">
+                  Categoría
+                </span>
+
+                <Select
+                  value={formulario.categoria}
+                  onValueChange={(value) =>
+                    setFormulario((actual) => ({
+                      ...actual,
+                      categoria: value ?? "",
+                    }))
+                  }
+                >
+                  <SelectTrigger className="h-auto w-auto border-none bg-transparent p-0 text-[15px] shadow-none focus:ring-0">
+                    <SelectValue placeholder="Selecciona" />
+                  </SelectTrigger>
+
+                  <SelectContent align="end">
+                    {categorias.map((categoria) => (
+                      <SelectItem
+                        key={categoria}
+                        value={categoria}
+                      >
+                        {categoriaLabel(categoria)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* PRECIO */}
+
+              <div className="flex items-center justify-between gap-3 border-b border-[#E7E4DC] px-4 py-3">
                 <label
                   htmlFor="precio"
-                  className="text-sm font-medium"
+                  className="shrink-0 text-sm text-[#8A8577]"
                 >
                   Precio
                 </label>
@@ -786,6 +902,7 @@ export default function PlatosPage() {
                   id="precio"
                   type="number"
                   min="0"
+                  inputMode="numeric"
                   value={formulario.precio}
                   onChange={(e) =>
                     setFormulario((actual) => ({
@@ -794,58 +911,75 @@ export default function PlatosPage() {
                     }))
                   }
                   placeholder="25000"
+                  className="h-auto border-none bg-transparent p-0 text-right text-[15px] tabular-nums text-[#211F1B] shadow-none focus-visible:ring-0"
                 />
               </div>
 
-    
-            </div>
+              {/* DISPONIBILIDAD */}
 
-            {/* DISPONIBILIDAD */}
-            <div className="flex items-center justify-between rounded-md border border-[#E4DED3] px-3 py-3">
-              <div>
-                <p className="text-sm font-medium">
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="text-sm text-[#8A8577]">
                   Disponible
-                </p>
+                </span>
 
-                <p className="text-xs text-[#8A8375]">
-                  El plato aparecerá disponible para pedidos.
-                </p>
+                <button
+                  type="button"
+                  aria-label="Cambiar disponibilidad"
+                  aria-pressed={formulario.disponible}
+                  onClick={() =>
+                    setFormulario((actual) => ({
+                      ...actual,
+                      disponible: !actual.disponible,
+                    }))
+                  }
+                  className={`
+                    relative h-6 w-11 shrink-0 rounded-full
+                    transition-colors
+                    ${
+                      formulario.disponible
+                        ? "bg-[#2FA36B]"
+                        : "bg-[#D8D4C8]"
+                    }
+                  `}
+                >
+                  <span
+                    className={`
+                      absolute top-1 size-4 rounded-full bg-white
+                      shadow transition-all
+                      ${
+                        formulario.disponible
+                          ? "left-[22px]"
+                          : "left-1"
+                      }
+                    `}
+                  />
+                </button>
               </div>
-
-              <button
-                type="button"
-                aria-label="Cambiar disponibilidad"
-                aria-pressed={formulario.disponible}
-                onClick={() =>
-                  setFormulario((actual) => ({
-                    ...actual,
-                    disponible: !actual.disponible,
-                  }))
-                }
-                className={`relative h-6 w-11 rounded-full transition ${
-                  formulario.disponible
-                    ? "bg-[#2E6B4F]"
-                    : "bg-[#B8B1A4]"
-                }`}
-              >
-                <span
-                  className={`absolute top-1 size-4 rounded-full bg-white shadow transition ${
-                    formulario.disponible
-                      ? "left-6"
-                      : "left-1"
-                  }`}
-                />
-              </button>
             </div>
           </div>
 
           {/* FOOTER */}
-          <DialogFooter>
+
+          <DialogFooter className="flex items-center gap-2 px-6 pb-6 pt-4">
+            {platoEditando && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDialogoAbierto(false);
+                  eliminarPlato(platoEditando);
+                }}
+                className="mr-auto text-[13px] font-medium text-[#C6433C] hover:underline"
+              >
+                Eliminar plato
+              </button>
+            )}
+
             <Button
               type="button"
               variant="outline"
               onClick={() => setDialogoAbierto(false)}
               disabled={guardando}
+              className="rounded-full border-[#E7E4DC] text-[#211F1B] shadow-none hover:bg-[#EFEDE6]"
             >
               Cancelar
             </Button>
@@ -853,8 +987,8 @@ export default function PlatosPage() {
             <Button
               type="button"
               onClick={guardarPlato}
-              disabled={guardando}
-              className="bg-[#22201D] text-white hover:bg-[#3A3732]"
+              disabled={guardarDeshabilitado}
+              className="rounded-full bg-[#211F1B] text-white shadow-none hover:bg-[#211F1B]/90"
             >
               {guardando
                 ? "Guardando..."
@@ -868,4 +1002,3 @@ export default function PlatosPage() {
     </main>
   );
 }
-
