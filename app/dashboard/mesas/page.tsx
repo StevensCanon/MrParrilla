@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -14,8 +20,9 @@ import {
   Pencil,
   Receipt,
 } from "lucide-react";
+import Image from "next/image";
 
-import { createAuthedClient } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
 
 import {
   Dialog,
@@ -28,13 +35,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import Image from "next/image";
 
-// ============================================================
-// TIPOS
-// ============================================================
-
-type RolUsuario = "admin" | "mesero" | "cajero" | string;
+type RolUsuario = "admin" | "mesero" | "cajero";
 
 type Mesa = {
   id: string;
@@ -75,20 +77,12 @@ type ItemSeleccionado = {
   cantidad: number;
 };
 
-// ============================================================
-// CATEGORÍAS
-// ============================================================
-
 const categorias = [
   { value: "desayuno", label: "Desayunos" },
   { value: "almuerzo", label: "Almuerzos" },
   { value: "bebida", label: "Bebidas" },
   { value: "adicional", label: "Adicionales" },
 ];
-
-// ============================================================
-// MONEDA
-// ============================================================
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-CO", {
@@ -97,25 +91,13 @@ const money = (n: number) =>
     maximumFractionDigits: 0,
   }).format(Math.round(Number(n) || 0));
 
-// ============================================================
-// COMPONENTE
-// ============================================================
-
 export default function MesasPage() {
   const router = useRouter();
-
-  // ============================================================
-  // DATOS
-  // ============================================================
 
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [comandas, setComandas] = useState<Comanda[]>([]);
   const [itemsComandas, setItemsComandas] = useState<ComandaItem[]>([]);
-
-  // ============================================================
-  // ESTADOS
-  // ============================================================
 
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -123,87 +105,43 @@ export default function MesasPage() {
   const [eliminandoMesa, setEliminandoMesa] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
-
-  // ============================================================
-  // USUARIO / ROL
-  // ============================================================
-
   const [rolUsuario, setRolUsuario] = useState<RolUsuario | null>(null);
 
   const esAdmin = rolUsuario === "admin";
-  const esMesero = rolUsuario === "mesero";
   const esCajero = rolUsuario === "cajero";
 
-  // ============================================================
-  // MESA SELECCIONADA
-  // ============================================================
-
-  const [mesaSeleccionada, setMesaSeleccionada] = useState<Mesa | null>(null);
+  const [mesaSeleccionada, setMesaSeleccionada] =
+    useState<Mesa | null>(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
 
-  // ============================================================
-  // DIÁLOGO DETALLE CAJERO
-  // ============================================================
-
-  const [mesaDetalleCajero, setMesaDetalleCajero] = useState<Mesa | null>(
-    null,
-  );
+  const [mesaDetalleCajero, setMesaDetalleCajero] =
+    useState<Mesa | null>(null);
   const [dialogoDetalleCajero, setDialogoDetalleCajero] = useState(false);
-
-  // ============================================================
-  // COMANDA
-  // ============================================================
 
   const [itemsSeleccionados, setItemsSeleccionados] = useState<
     ItemSeleccionado[]
   >([]);
-  const [busqueda, setBusqueda] = useState("");
 
-  // ============================================================
-  // CREAR / EDITAR MESA
-  // ============================================================
+  const [busqueda, setBusqueda] = useState("");
 
   const [dialogoCrearMesa, setDialogoCrearMesa] = useState(false);
   const [dialogoEditarMesa, setDialogoEditarMesa] = useState(false);
+
   const [mesaEditando, setMesaEditando] = useState<Mesa | null>(null);
   const [numeroMesa, setNumeroMesa] = useState("");
 
-  // ============================================================
-  // OBTENER TOKEN
-  // ============================================================
-
-  const obtenerToken = useCallback(() => {
-    const sesionGuardada = sessionStorage.getItem("sesion");
-
-    if (!sesionGuardada) {
-      router.push("/login");
-      return null;
-    }
-
+  const cargarRolUsuario = useCallback(async () => {
     try {
-      const sesion = JSON.parse(sesionGuardada);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (!sesion?.token) {
-        sessionStorage.removeItem("sesion");
+      if (!user) {
+        setRolUsuario(null);
         router.push("/login");
-        return null;
+        return;
       }
 
-      return sesion.token as string;
-    } catch {
-      sessionStorage.removeItem("sesion");
-      router.push("/login");
-      return null;
-    }
-  }, [router]);
-
-  // ============================================================
-  // OBTENER ROL DEL USUARIO
-  // ============================================================
-
-  const cargarRolUsuario = useCallback(async (token: string) => {
-    try {
-      const supabase = createAuthedClient(token);
       const { data: rol, error } = await supabase.rpc("rol_actual");
 
       if (error) {
@@ -215,49 +153,47 @@ export default function MesasPage() {
         .trim()
         .toLowerCase();
 
-      setRolUsuario(rolNormalizado);
+      if (
+        rolNormalizado === "admin" ||
+        rolNormalizado === "mesero" ||
+        rolNormalizado === "cajero"
+      ) {
+        setRolUsuario(rolNormalizado);
+      } else {
+        setRolUsuario(null);
+      }
     } catch {
       setRolUsuario(null);
     }
-  }, []);
-
-  // ============================================================
-  // CARGAR DATOS
-  // ============================================================
+  }, [router]);
 
   const cargarDatos = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    const token = obtenerToken();
-
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
     try {
-      await cargarRolUsuario(token);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      const supabase = createAuthedClient(token);
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      await cargarRolUsuario();
 
       const [
         { data: mesasData, error: mesasError },
         { data: platosData, error: platosError },
         { data: comandasData, error: comandasError },
       ] = await Promise.all([
-        // --------------------------------------------------------
-        // MESAS ACTIVAS
-        // --------------------------------------------------------
         supabase
           .from("mesas")
           .select("id, nombre, activa")
           .eq("activa", true)
           .order("nombre", { ascending: true }),
 
-        // --------------------------------------------------------
-        // PLATOS DISPONIBLES
-        // --------------------------------------------------------
         supabase
           .from("platos")
           .select("id, nombre, categoria, precio, disponible")
@@ -265,9 +201,6 @@ export default function MesasPage() {
           .order("categoria", { ascending: true })
           .order("nombre", { ascending: true }),
 
-        // --------------------------------------------------------
-        // COMANDAS ABIERTAS
-        // --------------------------------------------------------
         supabase
           .from("comandas")
           .select("id, mesa_id, mesero_id, estado")
@@ -294,128 +227,94 @@ export default function MesasPage() {
 
       setMesas(
         ((mesasData as Mesa[]) ?? []).sort((a, b) =>
-          a.nombre.localeCompare(b.nombre, undefined, { numeric: true }),
+          a.nombre.localeCompare(b.nombre, undefined, {
+            numeric: true,
+          }),
         ),
       );
 
       setPlatos((platosData as Plato[]) ?? []);
       setComandas(comandasFinales);
 
-      // ========================================================
-      // CARGAR ITEMS DE TODAS LAS COMANDAS ABIERTAS
-      // ========================================================
-
-      if (comandasFinales.length > 0) {
-        const idsComandas = comandasFinales.map((comanda) => comanda.id);
-
-        const { data: itemsData, error: itemsError } = await supabase
-          .from("comanda_items")
-          .select(
-            "id, comanda_id, plato_id, cantidad, precio_unitario, estado, observaciones",
-          )
-          .in("comanda_id", idsComandas)
-          .order("creado_en", { ascending: true });
-
-        if (itemsError) {
-          setError(itemsError.message);
-          return;
-        }
-
-        setItemsComandas((itemsData as ComandaItem[]) ?? []);
-      } else {
+      if (comandasFinales.length === 0) {
         setItemsComandas([]);
+        return;
       }
+
+      const idsComandas = comandasFinales.map((comanda) => comanda.id);
+
+      const { data: itemsData, error: itemsError } = await supabase
+        .from("comanda_items")
+        .select(
+          "id, comanda_id, plato_id, cantidad, precio_unitario, estado, observaciones",
+        )
+        .in("comanda_id", idsComandas)
+        .order("creado_en", { ascending: true });
+
+      if (itemsError) {
+        setError(itemsError.message);
+        return;
+      }
+
+      setItemsComandas((itemsData as ComandaItem[]) ?? []);
     } catch {
       setError("No se pudo cargar la información de las mesas.");
     } finally {
       setLoading(false);
     }
-  }, [obtenerToken, cargarRolUsuario]);
-
-  // ============================================================
-  // CARGAR AL INICIAR
-  // ============================================================
+  }, [router, cargarRolUsuario]);
 
   useEffect(() => {
-    void cargarDatos();
+    const timer = window.setTimeout(() => {
+      void cargarDatos();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [cargarDatos]);
 
-  // ============================================================
-  // DETERMINAR SI MESA ESTÁ OCUPADA
-  // ============================================================
-
   const estaOcupada = useCallback(
-    (mesaId: string) => {
-      return comandas.some(
+    (mesaId: string) =>
+      comandas.some(
         (comanda) =>
           comanda.mesa_id === mesaId && comanda.estado === "abierta",
-      );
-    },
+      ),
     [comandas],
   );
-
-  // ============================================================
-  // OBTENER COMANDA DE UNA MESA
-  // ============================================================
 
   const obtenerComandaMesa = useCallback(
-    (mesaId: string) => {
-      return (
-        comandas.find(
-          (comanda) =>
-            comanda.mesa_id === mesaId && comanda.estado === "abierta",
-        ) ?? null
-      );
-    },
+    (mesaId: string) =>
+      comandas.find(
+        (comanda) =>
+          comanda.mesa_id === mesaId && comanda.estado === "abierta",
+      ) ?? null,
     [comandas],
   );
 
-  // ============================================================
-  // OBTENER ITEMS DE UNA COMANDA
-  // ============================================================
-
   const obtenerItemsComanda = useCallback(
-    (comandaId: string) => {
-      return itemsComandas.filter((item) => item.comanda_id === comandaId);
-    },
+    (comandaId: string) =>
+      itemsComandas.filter((item) => item.comanda_id === comandaId),
     [itemsComandas],
   );
 
-  // ============================================================
-  // OBTENER TOTAL DE UNA COMANDA
-  // ============================================================
-
   const obtenerTotalComanda = useCallback(
-    (comandaId: string) => {
-      return obtenerItemsComanda(comandaId).reduce(
+    (comandaId: string) =>
+      obtenerItemsComanda(comandaId).reduce(
         (total, item) =>
-          total + Number(item.precio_unitario) * Number(item.cantidad),
+          total +
+          Number(item.precio_unitario) * Number(item.cantidad),
         0,
-      );
-    },
+      ),
     [obtenerItemsComanda],
   );
-
-  // ============================================================
-  // OBTENER TOTAL DE UNA MESA
-  // ============================================================
 
   const obtenerTotalMesa = useCallback(
     (mesaId: string) => {
       const comanda = obtenerComandaMesa(mesaId);
 
-      if (!comanda) {
-        return 0;
-      }
-
-      return obtenerTotalComanda(comanda.id);
+      return comanda ? obtenerTotalComanda(comanda.id) : 0;
     },
     [obtenerComandaMesa, obtenerTotalComanda],
   );
-
-  // ============================================================
-  // BUSCAR PLATOS
-  // ============================================================
 
   const platosFiltrados = useMemo(() => {
     const texto = busqueda.toLowerCase().trim();
@@ -429,33 +328,26 @@ export default function MesasPage() {
     );
   }, [platos, busqueda]);
 
-  // ============================================================
-  // AGRUPAR POR CATEGORÍA
-  // ============================================================
+  const platosPorCategoria = useMemo(
+    () =>
+      categorias.map((categoria) => ({
+        ...categoria,
+        platos: platosFiltrados.filter(
+          (plato) => plato.categoria === categoria.value,
+        ),
+      })),
+    [platosFiltrados],
+  );
 
-  const platosPorCategoria = useMemo(() => {
-    return categorias.map((categoria) => ({
-      ...categoria,
-      platos: platosFiltrados.filter(
-        (plato) => plato.categoria === categoria.value,
+  const total = useMemo(
+    () =>
+      itemsSeleccionados.reduce(
+        (acumulado, item) =>
+          acumulado + item.precio * item.cantidad,
+        0,
       ),
-    }));
-  }, [platosFiltrados]);
-
-  // ============================================================
-  // TOTAL COMANDA ACTUAL
-  // ============================================================
-
-  const total = useMemo(() => {
-    return itemsSeleccionados.reduce(
-      (acumulado, item) => acumulado + item.precio * item.cantidad,
-      0,
-    );
-  }, [itemsSeleccionados]);
-
-  // ============================================================
-  // TOTAL MESA SELECCIONADA PARA CAJERO
-  // ============================================================
+    [itemsSeleccionados],
+  );
 
   const totalMesaCajero = useMemo(() => {
     if (!mesaDetalleCajero) {
@@ -465,27 +357,14 @@ export default function MesasPage() {
     return obtenerTotalMesa(mesaDetalleCajero.id);
   }, [mesaDetalleCajero, obtenerTotalMesa]);
 
-  // ============================================================
-  // CANTIDAD DE UN PLATO
-  // ============================================================
-
   const cantidadPlato = useCallback(
-    (platoId: string) => {
-      return (
-        itemsSeleccionados.find((item) => item.plato_id === platoId)
-          ?.cantidad ?? 0
-      );
-    },
+    (platoId: string) =>
+      itemsSeleccionados.find((item) => item.plato_id === platoId)
+        ?.cantidad ?? 0,
     [itemsSeleccionados],
   );
 
-  // ============================================================
-  // CARGAR ITEMS DE COMANDA
-  // ============================================================
-
-  const cargarItemsComanda = async (comandaId: string, token: string) => {
-    const supabase = createAuthedClient(token);
-
+  const cargarItemsComanda = async (comandaId: string) => {
     const { data, error: errorItems } = await supabase
       .from("comanda_items")
       .select(
@@ -513,16 +392,8 @@ export default function MesasPage() {
     });
   };
 
-  // ============================================================
-  // ABRIR DETALLE PARA CAJERO
-  // ============================================================
-
   const abrirDetalleCajero = (mesa: Mesa) => {
-    if (!esCajero) {
-      return;
-    }
-
-    if (!estaOcupada(mesa.id)) {
+    if (!esCajero || !estaOcupada(mesa.id)) {
       return;
     }
 
@@ -531,34 +402,18 @@ export default function MesasPage() {
     setDialogoDetalleCajero(true);
   };
 
-  // ============================================================
-  // CERRAR DETALLE CAJERO
-  // ============================================================
-
   const cerrarDetalleCajero = () => {
     setDialogoDetalleCajero(false);
     setMesaDetalleCajero(null);
   };
 
-  // ============================================================
-  // ABRIR MESA
-  // ============================================================
-
   const abrirMesa = async (mesa: Mesa) => {
     setError(null);
-
-    // ========================================================
-    // CAJERO
-    // ========================================================
 
     if (esCajero) {
       abrirDetalleCajero(mesa);
       return;
     }
-
-    // ========================================================
-    // MESERO / ADMIN
-    // ========================================================
 
     setMesaSeleccionada(mesa);
     setBusqueda("");
@@ -571,16 +426,19 @@ export default function MesasPage() {
       return;
     }
 
-    const token = obtenerToken();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!token) {
+    if (!user) {
+      router.push("/login");
       return;
     }
 
     try {
       setGuardando(true);
 
-      const items = await cargarItemsComanda(comandaExistente.id, token);
+      const items = await cargarItemsComanda(comandaExistente.id);
 
       setItemsSeleccionados(items);
       setDialogoAbierto(true);
@@ -591,12 +449,10 @@ export default function MesasPage() {
     }
   };
 
-  // ============================================================
-  // CERRAR DIÁLOGO
-  // ============================================================
-
   const cerrarDialogo = () => {
-    if (guardando) return;
+    if (guardando) {
+      return;
+    }
 
     setDialogoAbierto(false);
     setMesaSeleccionada(null);
@@ -604,18 +460,19 @@ export default function MesasPage() {
     setBusqueda("");
   };
 
-  // ============================================================
-  // AGREGAR PLATO
-  // ============================================================
-
   const agregarPlato = (plato: Plato) => {
     setItemsSeleccionados((actuales) => {
-      const existente = actuales.find((item) => item.plato_id === plato.id);
+      const existente = actuales.find(
+        (item) => item.plato_id === plato.id,
+      );
 
       if (existente) {
         return actuales.map((item) =>
           item.plato_id === plato.id
-            ? { ...item, cantidad: item.cantidad + 1 }
+            ? {
+                ...item,
+                cantidad: item.cantidad + 1,
+              }
             : item,
         );
       }
@@ -633,25 +490,20 @@ export default function MesasPage() {
     });
   };
 
-  // ============================================================
-  // QUITAR UNA UNIDAD
-  // ============================================================
-
   const quitarPlato = (platoId: string) => {
     setItemsSeleccionados((actuales) =>
       actuales
         .map((item) =>
           item.plato_id === platoId
-            ? { ...item, cantidad: item.cantidad - 1 }
+            ? {
+                ...item,
+                cantidad: item.cantidad - 1,
+              }
             : item,
         )
         .filter((item) => item.cantidad > 0),
     );
   };
-
-  // ============================================================
-  // ELIMINAR PLATO
-  // ============================================================
 
   const eliminarPlatoSeleccionado = (platoId: string) => {
     setItemsSeleccionados((actuales) =>
@@ -659,19 +511,11 @@ export default function MesasPage() {
     );
   };
 
-  // ============================================================
-  // ABRIR CREAR MESA
-  // ============================================================
-
   const abrirCrearMesa = () => {
     setError(null);
     setNumeroMesa("");
     setDialogoCrearMesa(true);
   };
-
-  // ============================================================
-  // CREAR MESA
-  // ============================================================
 
   const crearMesa = async () => {
     const numero = numeroMesa.trim();
@@ -683,6 +527,15 @@ export default function MesasPage() {
 
     if (!/^\d+$/.test(numero)) {
       setError("El número de mesa debe contener únicamente números.");
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
       return;
     }
 
@@ -698,19 +551,16 @@ export default function MesasPage() {
       return;
     }
 
-    const token = obtenerToken();
-
-    if (!token) return;
-
     setError(null);
     setCreandoMesa(true);
 
     try {
-      const supabase = createAuthedClient(token);
-
       const { data, error } = await supabase
         .from("mesas")
-        .insert({ nombre, activa: true })
+        .insert({
+          nombre,
+          activa: true,
+        })
         .select("id, nombre, activa")
         .single();
 
@@ -721,7 +571,9 @@ export default function MesasPage() {
 
       setMesas((actuales) =>
         [...actuales, data as Mesa].sort((a, b) =>
-          a.nombre.localeCompare(b.nombre, undefined, { numeric: true }),
+          a.nombre.localeCompare(b.nombre, undefined, {
+            numeric: true,
+          }),
         ),
       );
 
@@ -734,14 +586,12 @@ export default function MesasPage() {
     }
   };
 
-  // ============================================================
-  // ABRIR EDITAR MESA
-  // ============================================================
-
-  const abrirEditarMesa = (e: React.MouseEvent, mesa: Mesa) => {
+  const abrirEditarMesa = (e: MouseEvent, mesa: Mesa) => {
     e.stopPropagation();
 
-    if (!esAdmin) return;
+    if (!esAdmin) {
+      return;
+    }
 
     setError(null);
 
@@ -751,10 +601,6 @@ export default function MesasPage() {
     setNumeroMesa(numero);
     setDialogoEditarMesa(true);
   };
-
-  // ============================================================
-  // EDITAR MESA
-  // ============================================================
 
   const editarMesa = async () => {
     if (!mesaEditando) {
@@ -773,6 +619,15 @@ export default function MesasPage() {
       return;
     }
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
     const numeroNormalizado = String(Number(numero));
     const nombre = `Mesa ${numeroNormalizado}`;
 
@@ -787,16 +642,10 @@ export default function MesasPage() {
       return;
     }
 
-    const token = obtenerToken();
-
-    if (!token) return;
-
     setGuardando(true);
     setError(null);
 
     try {
-      const supabase = createAuthedClient(token);
-
       const { data, error } = await supabase
         .from("mesas")
         .update({ nombre })
@@ -814,7 +663,9 @@ export default function MesasPage() {
             mesa.id === mesaEditando.id ? (data as Mesa) : mesa,
           )
           .sort((a, b) =>
-            a.nombre.localeCompare(b.nombre, undefined, { numeric: true }),
+            a.nombre.localeCompare(b.nombre, undefined, {
+              numeric: true,
+            }),
           ),
       );
 
@@ -823,25 +674,23 @@ export default function MesasPage() {
       setNumeroMesa("");
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "No se pudo editar la mesa.",
+        err instanceof Error
+          ? err.message
+          : "No se pudo editar la mesa.",
       );
     } finally {
       setGuardando(false);
     }
   };
 
-  // ============================================================
-  // ELIMINAR MESA
-  // ============================================================
-
-  const eliminarMesa = async (e: React.MouseEvent, mesa: Mesa) => {
+  const eliminarMesa = async (e: MouseEvent, mesa: Mesa) => {
     e.stopPropagation();
 
-    if (!esAdmin) return;
+    if (!esAdmin) {
+      return;
+    }
 
-    const ocupada = estaOcupada(mesa.id);
-
-    if (ocupada) {
+    if (estaOcupada(mesa.id)) {
       setError(
         `No puedes eliminar ${mesa.nombre} porque tiene una comanda abierta.`,
       );
@@ -856,16 +705,19 @@ export default function MesasPage() {
       return;
     }
 
-    const token = obtenerToken();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!token) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
 
     setEliminandoMesa(true);
     setError(null);
 
     try {
-      const supabase = createAuthedClient(token);
-
       const { error } = await supabase
         .from("mesas")
         .delete()
@@ -875,19 +727,19 @@ export default function MesasPage() {
         throw new Error(error.message);
       }
 
-      setMesas((actuales) => actuales.filter((m) => m.id !== mesa.id));
+      setMesas((actuales) =>
+        actuales.filter((m) => m.id !== mesa.id),
+      );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "No se pudo eliminar la mesa.",
+        err instanceof Error
+          ? err.message
+          : "No se pudo eliminar la mesa.",
       );
     } finally {
       setEliminandoMesa(false);
     }
   };
-
-  // ============================================================
-  // CONFIRMAR COMANDA
-  // ============================================================
 
   const confirmarComanda = async () => {
     if (!mesaSeleccionada) {
@@ -899,31 +751,28 @@ export default function MesasPage() {
       return;
     }
 
-    const token = obtenerToken();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!token) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
 
     setError(null);
     setGuardando(true);
 
     try {
-      const supabase = createAuthedClient(token);
-
-      const { data: userData } = await supabase.auth.getUser();
-      const usuarioId = userData.user?.id;
-
-      if (!usuarioId) {
-        throw new Error("No se pudo identificar al mesero.");
-      }
+      const usuarioId = user.id;
 
       let comanda = obtenerComandaMesa(mesaSeleccionada.id);
 
-      // ======================================================
-      // MESA LIBRE
-      // ======================================================
-
       if (!comanda) {
-        const { data: nuevaComanda, error: errorComanda } = await supabase
+        const {
+          data: nuevaComanda,
+          error: errorComanda,
+        } = await supabase
           .from("comandas")
           .insert({
             canal: "salon",
@@ -937,7 +786,10 @@ export default function MesasPage() {
         if (errorComanda || !nuevaComanda) {
           if (errorComanda?.code === "23505") {
             await cargarDatos();
-            throw new Error("Esta mesa acaba de ser ocupada por otro mesero.");
+
+            throw new Error(
+              "Esta mesa acaba de ser ocupada por otro mesero.",
+            );
           }
 
           throw new Error(
@@ -965,23 +817,23 @@ export default function MesasPage() {
             .delete()
             .eq("comanda_id", comanda.id);
 
-          await supabase.from("comandas").delete().eq("id", comanda.id);
+          await supabase
+            .from("comandas")
+            .delete()
+            .eq("id", comanda.id);
 
           throw new Error(errorItems.message);
         }
-      }
-
-      // ======================================================
-      // COMANDA EXISTENTE
-      // ======================================================
-      else {
-        const { data: itemsActualesData, error: errorItemsActuales } =
-          await supabase
-            .from("comanda_items")
-            .select(
-              "id, comanda_id, plato_id, cantidad, precio_unitario, estado, observaciones",
-            )
-            .eq("comanda_id", comanda.id);
+      } else {
+        const {
+          data: itemsActualesData,
+          error: errorItemsActuales,
+        } = await supabase
+          .from("comanda_items")
+          .select(
+            "id, comanda_id, plato_id, cantidad, precio_unitario, estado, observaciones",
+          )
+          .eq("comanda_id", comanda.id);
 
         if (errorItemsActuales) {
           throw new Error(errorItemsActuales.message);
@@ -992,10 +844,6 @@ export default function MesasPage() {
         const seleccionadosMap = new Map(
           itemsSeleccionados.map((item) => [item.plato_id, item]),
         );
-
-        // ----------------------------------------------------
-        // ELIMINAR ITEMS
-        // ----------------------------------------------------
 
         for (const itemActual of itemsActuales) {
           if (!seleccionadosMap.has(itemActual.plato_id)) {
@@ -1010,10 +858,6 @@ export default function MesasPage() {
           }
         }
 
-        // ----------------------------------------------------
-        // ACTUALIZAR / INSERTAR
-        // ----------------------------------------------------
-
         for (const itemSeleccionado of itemsSeleccionados) {
           const itemExistente = itemsActuales.find(
             (item) => item.plato_id === itemSeleccionado.plato_id,
@@ -1023,7 +867,9 @@ export default function MesasPage() {
             if (itemExistente.cantidad !== itemSeleccionado.cantidad) {
               const { error: errorUpdate } = await supabase
                 .from("comanda_items")
-                .update({ cantidad: itemSeleccionado.cantidad })
+                .update({
+                  cantidad: itemSeleccionado.cantidad,
+                })
                 .eq("id", itemExistente.id);
 
               if (errorUpdate) {
@@ -1065,10 +911,6 @@ export default function MesasPage() {
     }
   };
 
-  // ============================================================
-  // LIBERAR MESA
-  // ============================================================
-
   const liberarMesa = async () => {
     if (!mesaSeleccionada) {
       return;
@@ -1089,16 +931,19 @@ export default function MesasPage() {
       return;
     }
 
-    const token = obtenerToken();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!token) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
 
     setGuardando(true);
     setError(null);
 
     try {
-      const supabase = createAuthedClient(token);
-
       const { error: errorItems } = await supabase
         .from("comanda_items")
         .delete()
@@ -1117,7 +962,9 @@ export default function MesasPage() {
         throw new Error(errorComanda.message);
       }
 
-      setComandas((actuales) => actuales.filter((c) => c.id !== comanda.id));
+      setComandas((actuales) =>
+        actuales.filter((c) => c.id !== comanda.id),
+      );
 
       setItemsComandas((actuales) =>
         actuales.filter((item) => item.comanda_id !== comanda.id),
@@ -1126,16 +973,14 @@ export default function MesasPage() {
       cerrarDialogo();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "No se pudo liberar la mesa.",
+        err instanceof Error
+          ? err.message
+          : "No se pudo liberar la mesa.",
       );
     } finally {
       setGuardando(false);
     }
   };
-
-  // ============================================================
-  // LOADING
-  // ============================================================
 
   if (loading) {
     return (
@@ -1148,16 +993,8 @@ export default function MesasPage() {
     );
   }
 
-  // ============================================================
-  // RENDER
-  // ============================================================
-
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-      {/* ======================================================
-          ENCABEZADO
-      ====================================================== */}
-
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
@@ -1189,10 +1026,6 @@ export default function MesasPage() {
         )}
       </div>
 
-      {/* ======================================================
-          ERROR
-      ====================================================== */}
-
       {error && (
         <div className="flex items-center justify-between border border-[#E7B8AD] bg-[#FFF5F2] px-4 py-3 text-sm text-[#A3402A]">
           <span>{error}</span>
@@ -1207,10 +1040,6 @@ export default function MesasPage() {
         </div>
       )}
 
-      {/* ======================================================
-          RESUMEN
-      ====================================================== */}
-
       <div className="flex flex-wrap gap-3 text-xs">
         <div className="flex items-center gap-2 rounded-full bg-[#E8F1EC] px-3 py-1.5 text-[#2E6B4F]">
           <span className="size-2 rounded-full bg-[#2E6B4F]" />
@@ -1222,10 +1051,6 @@ export default function MesasPage() {
           {mesas.filter((mesa) => estaOcupada(mesa.id)).length} ocupadas
         </div>
       </div>
-
-      {/* ======================================================
-          MESAS
-      ====================================================== */}
 
       {mesas.length === 0 ? (
         <div className="flex min-h-[300px] flex-col items-center justify-center border border-[#E4DED3] bg-white">
@@ -1250,13 +1075,11 @@ export default function MesasPage() {
               <div
                 key={mesa.id}
                 className={`group relative flex min-h-[190px] flex-col items-center justify-between rounded-lg border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
-                  ocupada ? "border-[#D8D0C3]" : "border-[#E4DED3]"
+                  ocupada
+                    ? "border-[#D8D0C3]"
+                    : "border-[#E4DED3]"
                 }`}
               >
-                {/* ==================================================
-                    BADGE LIBRE / OCUPADA — esquina superior derecha
-                ================================================== */}
-
                 <span
                   className={`absolute right-2 top-2 z-10 rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide shadow-sm ${
                     ocupada
@@ -1266,10 +1089,6 @@ export default function MesasPage() {
                 >
                   {ocupada ? "Ocupada" : "Libre"}
                 </span>
-
-                {/* ==================================================
-                    IMAGEN DE LA MESA + NÚMERO
-                ================================================== */}
 
                 <button
                   type="button"
@@ -1283,16 +1102,12 @@ export default function MesasPage() {
                     className="object-contain"
                   />
 
-                  <span className="relative  text-3xl pb-3 font-semibold leading-none pointer-events-none text-white ">
+                  <span className="pointer-events-none relative pb-3 text-3xl font-semibold leading-none text-white">
                     {numero}
                   </span>
 
-                  {/* ==============================================
-                      HOVER TOTAL CAJERO
-                  =============================================== */}
-
                   {esCajero && ocupada && (
-                    <div className="pointer-events-none absolute   w-[160px]   rounded-lg border border-[#D8D0C3] bg-white px-4 py-3 text-left opacity-0 shadow-xl transition-all duration-150  group-hover:opacity-100 ">
+                    <div className="pointer-events-none absolute w-[160px] rounded-lg border border-[#D8D0C3] bg-white px-4 py-3 text-left opacity-0 shadow-xl transition-all duration-150 group-hover:opacity-100">
                       <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-[#8A8375]">
                         <Receipt size={13} />
                         Total mesa
@@ -1313,10 +1128,6 @@ export default function MesasPage() {
                   Mesa {numero}
                 </p>
 
-                {/* ==================================================
-                    ACCIONES ADMIN — debajo de la mesa
-                ================================================== */}
-
                 {esAdmin && (
                   <div className="mt-3 flex gap-1.5">
                     <button
@@ -1332,7 +1143,7 @@ export default function MesasPage() {
                       type="button"
                       onClick={(e) => void eliminarMesa(e, mesa)}
                       disabled={eliminandoMesa || ocupada}
-                      className="flex size-7 items-center justify-center rounded-md border border-[#E4DED3] bg-white text-[#A3402A] transition hover:bg-[#FFF5F2] disabled:cursor-not-allowed disabled:opacity-40 border-red-500"
+                      className="flex size-7 items-center justify-center rounded-md border border-red-500 bg-white text-[#A3402A] transition hover:bg-[#FFF5F2] disabled:cursor-not-allowed disabled:opacity-40"
                       title={
                         ocupada
                           ? "No puedes eliminar una mesa ocupada"
@@ -1349,11 +1160,10 @@ export default function MesasPage() {
         </div>
       )}
 
-      {/* ======================================================
-          DIALOG CREAR MESA
-      ====================================================== */}
-
-      <Dialog open={dialogoCrearMesa} onOpenChange={setDialogoCrearMesa}>
+      <Dialog
+        open={dialogoCrearMesa}
+        onOpenChange={setDialogoCrearMesa}
+      >
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Nueva mesa</DialogTitle>
@@ -1422,11 +1232,10 @@ export default function MesasPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ======================================================
-          DIALOG EDITAR MESA
-      ====================================================== */}
-
-      <Dialog open={dialogoEditarMesa} onOpenChange={setDialogoEditarMesa}>
+      <Dialog
+        open={dialogoEditarMesa}
+        onOpenChange={setDialogoEditarMesa}
+      >
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Editar mesa</DialogTitle>
@@ -1438,7 +1247,10 @@ export default function MesasPage() {
           </DialogHeader>
 
           <div className="py-3">
-            <label htmlFor="numeroMesaEditar" className="text-sm font-medium">
+            <label
+              htmlFor="numeroMesaEditar"
+              className="text-sm font-medium"
+            >
               Número de mesa
             </label>
 
@@ -1495,10 +1307,6 @@ export default function MesasPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ======================================================
-          DIALOG DETALLE CAJERO
-      ====================================================== */}
-
       <Dialog
         open={dialogoDetalleCajero}
         onOpenChange={(open) => {
@@ -1508,13 +1316,15 @@ export default function MesasPage() {
         }}
       >
         <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 sm:max-w-[650px]">
-          {/* HEADER */}
-
           <DialogHeader className="border-b border-[#E4DED3] px-6 py-5">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <DialogTitle className="text-xl">
-                  Mesa {mesaDetalleCajero?.nombre.replace(/^mesa\s*/i, "")}
+                  Mesa{" "}
+                  {mesaDetalleCajero?.nombre.replace(
+                    /^mesa\s*/i,
+                    "",
+                  )}
                 </DialogTitle>
 
                 <DialogDescription className="mt-1">
@@ -1528,20 +1338,23 @@ export default function MesasPage() {
             </div>
           </DialogHeader>
 
-          {/* CONTENIDO */}
-
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             {(() => {
               const comanda = mesaDetalleCajero
                 ? obtenerComandaMesa(mesaDetalleCajero.id)
                 : null;
 
-              const items = comanda ? obtenerItemsComanda(comanda.id) : [];
+              const items = comanda
+                ? obtenerItemsComanda(comanda.id)
+                : [];
 
               if (items.length === 0) {
                 return (
                   <div className="flex min-h-[250px] flex-col items-center justify-center text-center">
-                    <Receipt size={32} className="text-[#B8B1A4]" />
+                    <Receipt
+                      size={32}
+                      className="text-[#B8B1A4]"
+                    />
 
                     <p className="mt-3 text-sm font-medium text-[#22201D]">
                       Sin productos
@@ -1556,21 +1369,22 @@ export default function MesasPage() {
 
               return (
                 <div className="flex flex-col gap-3">
-                  {/* CABECERA */}
-
                   <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-[#E4DED3] pb-2 text-[10px] font-semibold uppercase tracking-wider text-[#8A8375]">
                     <span>Producto</span>
                     <span>Cant.</span>
                     <span>Subtotal</span>
                   </div>
 
-                  {/* PRODUCTOS */}
-
                   {items.map((item) => {
-                    const plato = platos.find((p) => p.id === item.plato_id);
+                    const plato = platos.find(
+                      (p) => p.id === item.plato_id,
+                    );
+
                     const nombre = plato?.nombre ?? "Producto";
+
                     const subtotal =
-                      Number(item.precio_unitario) * Number(item.cantidad);
+                      Number(item.precio_unitario) *
+                      Number(item.cantidad);
 
                     return (
                       <div
@@ -1608,16 +1422,16 @@ export default function MesasPage() {
             })()}
           </div>
 
-          {/* TOTAL */}
-
           <div className="border-t border-[#E4DED3] bg-zinc-50 px-6 py-5">
             <div className="flex items-end justify-between">
               <div>
-                <p className="font-extrabold text-xs uppercase tracking-wider text-black">
+                <p className="text-xs font-extrabold uppercase tracking-wider text-black">
                   Total de la mesa
                 </p>
 
-                <p className="mt-1 text-sm  font-medium text-[#6F695E]">Consumo actual</p>
+                <p className="mt-1 text-sm font-medium text-[#6F695E]">
+                  Consumo actual
+                </p>
               </div>
 
               <p className="font-mono text-2xl font-extrabold text-black">
@@ -1626,14 +1440,12 @@ export default function MesasPage() {
             </div>
           </div>
 
-          {/* FOOTER */}
-
           <DialogFooter className="border-t border-[#E4DED3] bg-white px-6 pb-8">
             <Button
               type="button"
               variant="outline"
               onClick={cerrarDetalleCajero}
-              className="bg-red-500 text-white hover:bg-red-900 hover:text-white cursor-pointer"
+              className="cursor-pointer bg-red-500 text-white hover:bg-red-900 hover:text-white"
             >
               <X size={15} />
               Cerrar
@@ -1641,10 +1453,6 @@ export default function MesasPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* ======================================================
-          DIALOG COMANDA
-      ====================================================== */}
 
       <Dialog
         open={dialogoAbierto}
@@ -1655,31 +1463,24 @@ export default function MesasPage() {
         }}
       >
         <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 sm:max-w-[950px]">
-          {/* ==================================================
-              HEADER
-          ================================================== */}
-
           <DialogHeader className="border-b border-[#E4DED3] px-6 py-5">
             <DialogTitle className="text-xl">
-              Mesa {mesaSeleccionada?.nombre.replace(/^mesa\s*/i, "")}
+              Mesa{" "}
+              {mesaSeleccionada?.nombre.replace(
+                /^mesa\s*/i,
+                "",
+              )}
             </DialogTitle>
 
             <DialogDescription>
-              {mesaSeleccionada && estaOcupada(mesaSeleccionada.id)
+              {mesaSeleccionada &&
+              estaOcupada(mesaSeleccionada.id)
                 ? "Continúa agregando productos a la comanda."
                 : "Selecciona los productos y confirma para enviar la comanda a cocina."}
             </DialogDescription>
           </DialogHeader>
 
-          {/* ==================================================
-              CONTENIDO
-          ================================================== */}
-
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-            {/* ================================================
-                PLATOS
-            ================================================= */}
-
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
               <div className="mb-5">
                 <div className="relative">
@@ -1740,7 +1541,9 @@ export default function MesasPage() {
                                       variant="outline"
                                       size="icon"
                                       className="size-7"
-                                      onClick={() => quitarPlato(plato.id)}
+                                      onClick={() =>
+                                        quitarPlato(plato.id)
+                                      }
                                     >
                                       <Minus size={14} />
                                     </Button>
@@ -1770,7 +1573,10 @@ export default function MesasPage() {
 
                 {platosFiltrados.length === 0 && (
                   <div className="flex flex-col items-center py-12 text-center">
-                    <Search size={28} className="text-[#B8B1A4]" />
+                    <Search
+                      size={28}
+                      className="text-[#B8B1A4]"
+                    />
 
                     <p className="mt-3 text-sm font-medium text-[#22201D]">
                       No encontramos platos
@@ -1783,10 +1589,6 @@ export default function MesasPage() {
                 )}
               </div>
             </div>
-
-            {/* ================================================
-                COMANDA
-            ================================================= */}
 
             <div className="flex w-full flex-col border-t border-[#E4DED3] bg-[#FAF8F4] lg:w-[350px] lg:border-l lg:border-t-0">
               <div className="flex items-center justify-between border-b border-[#E4DED3] px-5 py-4">
@@ -1803,13 +1605,19 @@ export default function MesasPage() {
                   </p>
                 </div>
 
-                <Utensils size={18} className="text-[#8A8375]" />
+                <Utensils
+                  size={18}
+                  className="text-[#8A8375]"
+                />
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
                 {itemsSeleccionados.length === 0 ? (
                   <div className="flex h-full min-h-[180px] flex-col items-center justify-center text-center">
-                    <Utensils size={26} className="text-[#B8B1A4]" />
+                    <Utensils
+                      size={26}
+                      className="text-[#B8B1A4]"
+                    />
 
                     <p className="mt-3 text-sm font-medium text-[#22201D]">
                       Comanda vacía
@@ -1848,7 +1656,9 @@ export default function MesasPage() {
                             variant="outline"
                             size="icon"
                             className="size-7"
-                            onClick={() => quitarPlato(item.plato_id)}
+                            onClick={() =>
+                              quitarPlato(item.plato_id)
+                            }
                           >
                             <Minus size={13} />
                           </Button>
@@ -1881,7 +1691,9 @@ export default function MesasPage() {
                             size="icon"
                             className="ml-auto size-7 text-[#A3402A] hover:bg-[#FFF5F2]"
                             onClick={() =>
-                              eliminarPlatoSeleccionado(item.plato_id)
+                              eliminarPlatoSeleccionado(
+                                item.plato_id,
+                              )
                             }
                             title="Eliminar producto"
                           >
@@ -1893,10 +1705,6 @@ export default function MesasPage() {
                   </div>
                 )}
               </div>
-
-              {/* ==============================================
-                  TOTAL
-              =============================================== */}
 
               <div className="border-t border-[#E4DED3] px-5 py-4">
                 <div className="flex items-center justify-between">
@@ -1912,23 +1720,20 @@ export default function MesasPage() {
             </div>
           </div>
 
-          {/* ==================================================
-              FOOTER
-          ================================================== */}
-
           <DialogFooter className="border-t border-[#E4DED3] bg-white px-6 py-4">
-            {mesaSeleccionada && estaOcupada(mesaSeleccionada.id) && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void liberarMesa()}
-                disabled={guardando}
-                className="mr-auto text-[#A3402A] hover:bg-[#FFF5F2]"
-              >
-                <Trash2 size={15} />
-                Liberar mesa
-              </Button>
-            )}
+            {mesaSeleccionada &&
+              estaOcupada(mesaSeleccionada.id) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void liberarMesa()}
+                  disabled={guardando}
+                  className="mr-auto text-[#A3402A] hover:bg-[#FFF5F2]"
+                >
+                  <Trash2 size={15} />
+                  Liberar mesa
+                </Button>
+              )}
 
             <Button
               type="button"
@@ -1943,7 +1748,9 @@ export default function MesasPage() {
             <Button
               type="button"
               onClick={() => void confirmarComanda()}
-              disabled={guardando || itemsSeleccionados.length === 0}
+              disabled={
+                guardando || itemsSeleccionados.length === 0
+              }
               className="bg-[#22201D] text-white hover:bg-[#3A3732]"
             >
               {guardando ? (

@@ -1,4 +1,5 @@
 "use client";
+
 import { BiSolidDashboard } from "react-icons/bi";
 import { GiForkKnifeSpoon } from "react-icons/gi";
 import { IoIosListBox } from "react-icons/io";
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/sidebar";
 
 import { usePathname, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 const menuPrincipal = [
   {
@@ -80,8 +82,14 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
 
-  const cerrarSesion = () => {
-    sessionStorage.removeItem("sesion");
+  const cerrarSesion = async () => {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Error cerrando sesión:", error);
+      return;
+    }
+
     router.push("/login");
   };
 
@@ -91,13 +99,13 @@ export default function DashboardLayout({
         {/* HEADER */}
         <SidebarHeader className="border-b border-[#E4DED3]">
           <div className="flex h-14 items-center gap-3 px-2">
-            <div className="flex  shrink-0 items-center justify-center rounded-sm  text-white">
+            <div className="flex shrink-0 items-center justify-center rounded-sm text-white">
               <Image
                 src="/Logo.png"
                 alt="Logo"
                 width={60}
                 height={60}
-                className=" object-contain"
+                className="object-contain"
               />
             </div>
 
@@ -183,7 +191,10 @@ export default function DashboardLayout({
             </SidebarMenuItem>
 
             <SidebarMenuItem>
-              <SidebarMenuButton tooltip="Cerrar sesión" onClick={cerrarSesion}>
+              <SidebarMenuButton
+                tooltip="Cerrar sesión"
+                onClick={cerrarSesion}
+              >
                 <LogOut size={17} />
                 <span>Cerrar sesión</span>
               </SidebarMenuButton>
@@ -195,7 +206,7 @@ export default function DashboardLayout({
       {/* ÁREA PRINCIPAL */}
       <SidebarInset className="text-white">
         {/* TOPBAR */}
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-3  border-white border-b-4 bg-red-800 px-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-white border-b-4 bg-red-800 px-4">
           <SidebarTrigger />
 
           <div className="h-5 w-px bg-white" />
@@ -215,3 +226,4 @@ export default function DashboardLayout({
     </SidebarProvider>
   );
 }
+

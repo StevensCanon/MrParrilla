@@ -3,22 +3,22 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
+  type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertCircle,
+  Check,
   ChefHat,
   Clock3,
   Loader2,
-  RefreshCw,
-  Check,
   Play,
+  RefreshCw,
   Utensils,
-  AlertCircle,
 } from "lucide-react";
 
-import { createAuthedClient } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
 
 type Comanda = {
   id: string;
@@ -59,20 +59,17 @@ type ComandaCocina = Comanda & {
   items: ItemCocina[];
 };
 
-const formatearHora = (fecha: string) => {
-  return new Intl.DateTimeFormat("es-CO", {
+const formatearHora = (fecha: string) =>
+  new Intl.DateTimeFormat("es-CO", {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(fecha));
-};
 
 const tiempoTranscurrido = (fecha: string) => {
   const inicio = new Date(fecha).getTime();
-  const ahora = Date.now();
-
   const minutos = Math.max(
     0,
-    Math.floor((ahora - inicio) / 60000),
+    Math.floor((Date.now() - inicio) / 60000),
   );
 
   if (minutos < 1) {
@@ -100,63 +97,11 @@ const tiempoTranscurrido = (fecha: string) => {
 export default function CocinaPage() {
   const router = useRouter();
 
-  // ============================================================
-  // DATOS
-  // ============================================================
-
-  const [comandas, setComandas] = useState<
-    ComandaCocina[]
-  >([]);
-
-  // ============================================================
-  // ESTADOS
-  // ============================================================
-
+  const [comandas, setComandas] = useState<ComandaCocina[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actualizando, setActualizando] =
-    useState(false);
-
-  const [error, setError] = useState<string | null>(
-    null,
-  );
-
-  const [accionando, setAccionando] =
-    useState<string | null>(null);
-
-  // ============================================================
-  // TOKEN
-  // ============================================================
-
-  const obtenerToken = useCallback(() => {
-    const sesionGuardada =
-      sessionStorage.getItem("sesion");
-
-    if (!sesionGuardada) {
-      router.push("/login");
-      return null;
-    }
-
-    try {
-      const sesion =
-        JSON.parse(sesionGuardada);
-
-      if (!sesion?.token) {
-        sessionStorage.removeItem("sesion");
-        router.push("/login");
-        return null;
-      }
-
-      return sesion.token as string;
-    } catch {
-      sessionStorage.removeItem("sesion");
-      router.push("/login");
-      return null;
-    }
-  }, [router]);
-
-  // ============================================================
-  // CARGAR COMANDAS
-  // ============================================================
+  const [actualizando, setActualizando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [accionando, setAccionando] = useState<string | null>(null);
 
   const cargarComandas = useCallback(
     async (mostrarLoading = false) => {
@@ -166,228 +111,134 @@ export default function CocinaPage() {
 
       setError(null);
 
-      const token = obtenerToken();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (!token) {
+      if (!user) {
+        router.push("/login");
         setLoading(false);
         return;
       }
 
       try {
-        const supabase =
-          createAuthedClient(token);
-
-        // ------------------------------------------------------
-        // COMANDAS ABIERTAS
-        // ------------------------------------------------------
-
-        const {
-          data: comandasData,
-          error: comandasError,
-        } = await supabase
-          .from("comandas")
-          .select(
-            "id, canal, mesa_id, mesero_id, estado, abierta_en",
-          )
-          .eq("estado", "abierta")
-          .order("abierta_en", {
-            ascending: true,
-          });
+        const { data: comandasData, error: comandasError } =
+          await supabase
+            .from("comandas")
+            .select(
+              "id, canal, mesa_id, mesero_id, estado, abierta_en",
+            )
+            .eq("estado", "abierta")
+            .order("abierta_en", {
+              ascending: true,
+            });
 
         if (comandasError) {
-          throw new Error(
-            comandasError.message,
-          );
+          throw new Error(comandasError.message);
         }
 
-        const comandasBase =
-          (comandasData as Comanda[]) ?? [];
+        const comandasBase = (comandasData as Comanda[]) ?? [];
 
         if (comandasBase.length === 0) {
           setComandas([]);
           return;
         }
 
-        // ------------------------------------------------------
-        // IDS DE MESAS
-        // ------------------------------------------------------
-
         const mesaIds = Array.from(
           new Set(
             comandasBase
-              .map(
-                (comanda) =>
-                  comanda.mesa_id,
-              )
+              .map((comanda) => comanda.mesa_id)
               .filter(
-                (
-                  id,
-                ): id is string =>
-                  Boolean(id),
+                (id): id is string => Boolean(id),
               ),
           ),
         );
 
-        // ------------------------------------------------------
-        // MESAS
-        // ------------------------------------------------------
-
         let mesasData: Mesa[] = [];
 
         if (mesaIds.length > 0) {
-          const {
-            data,
-            error,
-          } = await supabase
+          const { data, error: mesasError } = await supabase
             .from("mesas")
             .select("id, nombre")
             .in("id", mesaIds);
 
-          if (error) {
-            throw new Error(
-              error.message,
-            );
+          if (mesasError) {
+            throw new Error(mesasError.message);
           }
 
-          mesasData =
-            (data as Mesa[]) ?? [];
+          mesasData = (data as Mesa[]) ?? [];
         }
 
-        // ------------------------------------------------------
-        // COMANDA ITEMS
-        // ------------------------------------------------------
+        const comandaIds = comandasBase.map(
+          (comanda) => comanda.id,
+        );
 
-        const comandaIds =
-          comandasBase.map(
-            (comanda) => comanda.id,
-          );
-
-        const {
-          data: itemsData,
-          error: itemsError,
-        } = await supabase
-          .from("comanda_items")
-          .select(
-            "id, comanda_id, plato_id, cantidad, observaciones, precio_unitario, estado",
-          )
-          .in(
-            "comanda_id",
-            comandaIds,
-          )
-          .order("creado_en", {
-            ascending: true,
-          });
+        const { data: itemsData, error: itemsError } =
+          await supabase
+            .from("comanda_items")
+            .select(
+              "id, comanda_id, plato_id, cantidad, observaciones, precio_unitario, estado",
+            )
+            .in("comanda_id", comandaIds)
+            .order("creado_en", {
+              ascending: true,
+            });
 
         if (itemsError) {
-          throw new Error(
-            itemsError.message,
-          );
+          throw new Error(itemsError.message);
         }
 
-        const items =
-          (itemsData as ComandaItem[]) ?? [];
-
-        // ------------------------------------------------------
-        // PLATOS
-        // ------------------------------------------------------
+        const items = (itemsData as ComandaItem[]) ?? [];
 
         const platoIds = Array.from(
-          new Set(
-            items.map(
-              (item) =>
-                item.plato_id,
-            ),
-          ),
+          new Set(items.map((item) => item.plato_id)),
         );
 
         let platosData: Plato[] = [];
 
         if (platoIds.length > 0) {
-          const {
-            data,
-            error,
-          } = await supabase
+          const { data, error: platosError } = await supabase
             .from("platos")
-            .select(
-              "id, nombre, categoria",
-            )
-            .in(
-              "id",
-              platoIds,
-            );
+            .select("id, nombre, categoria")
+            .in("id", platoIds);
 
-          if (error) {
-            throw new Error(
-              error.message,
-            );
+          if (platosError) {
+            throw new Error(platosError.message);
           }
 
-          platosData =
-            (data as Plato[]) ?? [];
+          platosData = (data as Plato[]) ?? [];
         }
 
-        // ------------------------------------------------------
-        // MAPAS
-        // ------------------------------------------------------
+        const mesasMap = new Map(
+          mesasData.map((mesa) => [mesa.id, mesa]),
+        );
 
-        const mesasMap =
-          new Map(
-            mesasData.map((mesa) => [
-              mesa.id,
-              mesa,
-            ]),
-          );
+        const platosMap = new Map(
+          platosData.map((plato) => [plato.id, plato]),
+        );
 
-        const platosMap =
-          new Map(
-            platosData.map((plato) => [
-              plato.id,
-              plato,
-            ]),
-          );
+        const resultado = comandasBase.map((comanda) => {
+          const itemsComanda = items
+            .filter(
+              (item) => item.comanda_id === comanda.id,
+            )
+            .map((item) => ({
+              ...item,
+              plato:
+                platosMap.get(item.plato_id) ?? null,
+            }));
 
-        // ------------------------------------------------------
-        // ARMAR ESTRUCTURA
-        // ------------------------------------------------------
-
-        const resultado: ComandaCocina[] =
-          comandasBase.map(
-            (comanda) => {
-              const itemsComanda =
-                items
-                  .filter(
-                    (item) =>
-                      item.comanda_id ===
-                      comanda.id,
-                  )
-                  .map((item) => ({
-                    ...item,
-                    plato:
-                      platosMap.get(
-                        item.plato_id,
-                      ) ?? null,
-                  }));
-
-              return {
-                ...comanda,
-                mesa:
-                  comanda.mesa_id
-                    ? mesasMap.get(
-                        comanda.mesa_id,
-                      ) ?? null
-                    : null,
-                items: itemsComanda,
-              };
-            },
-          );
+          return {
+            ...comanda,
+            mesa: comanda.mesa_id
+              ? mesasMap.get(comanda.mesa_id) ?? null
+              : null,
+            items: itemsComanda,
+          };
+        });
 
         setComandas(resultado);
       } catch (err) {
-        console.error(
-          "Error cargando cocina:",
-          err,
-        );
-
         setError(
           err instanceof Error
             ? err.message
@@ -398,91 +249,62 @@ export default function CocinaPage() {
         setActualizando(false);
       }
     },
-    [obtenerToken],
+    [router],
   );
 
-  // ============================================================
-  // CARGA INICIAL
-  // ============================================================
-
   useEffect(() => {
-    void cargarComandas(true);
-  }, [cargarComandas]);
-
-  // ============================================================
-  // ACTUALIZACIÓN AUTOMÁTICA
-  // ============================================================
-
-  useEffect(() => {
-    const intervalo =
-      window.setInterval(() => {
-        void cargarComandas(false);
-      }, 10000);
+    const intervalo = window.setInterval(() => {
+      void cargarComandas(false);
+    }, 10000);
 
     return () => {
-      window.clearInterval(
-        intervalo,
-      );
+      window.clearInterval(intervalo);
     };
   }, [cargarComandas]);
 
-  // ============================================================
-  // ACTUALIZAR MANUALMENTE
-  // ============================================================
-
   const actualizar = async () => {
-    if (actualizando) return;
+    if (actualizando) {
+      return;
+    }
 
     setActualizando(true);
-
     await cargarComandas(false);
   };
 
-  // ============================================================
-  // CAMBIAR ESTADO DEL ITEM
-  // ============================================================
-
   const cambiarEstadoItem = async (
     itemId: string,
-    nuevoEstado:
-      | "preparando"
-      | "listo",
+    nuevoEstado: "preparando" | "listo",
   ) => {
-    if (accionando) return;
+    if (accionando) {
+      return;
+    }
 
-    const token = obtenerToken();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!token) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
 
     setAccionando(itemId);
     setError(null);
 
     try {
-      const supabase =
-        createAuthedClient(token);
-
-      const {
-        error,
-      } = await supabase
+      const { error: updateError } = await supabase
         .from("comanda_items")
         .update({
           estado: nuevoEstado,
         })
         .eq("id", itemId);
 
-      if (error) {
-        throw new Error(
-          error.message,
-        );
+      if (updateError) {
+        throw new Error(updateError.message);
       }
 
       await cargarComandas(false);
     } catch (err) {
-      console.error(
-        "Error actualizando item:",
-        err,
-      );
-
       setError(
         err instanceof Error
           ? err.message
@@ -493,56 +315,28 @@ export default function CocinaPage() {
     }
   };
 
-  // ============================================================
-  // AGRUPACIÓN
-  // ============================================================
+  const comandasPendientes = comandas.filter((comanda) =>
+    comanda.items.some(
+      (item) => item.estado === "pendiente",
+    ),
+  );
 
-  const comandasPendientes =
-    useMemo(() => {
-      return comandas.filter(
-        (comanda) =>
-          comanda.items.some(
-            (item) =>
-              item.estado ===
-              "pendiente",
-          ),
-      );
-    }, [comandas]);
+  const comandasPreparando = comandas.filter((comanda) =>
+    comanda.items.some(
+      (item) => item.estado === "preparando",
+    ),
+  );
 
-  const comandasPreparando =
-    useMemo(() => {
-      return comandas.filter(
-        (comanda) =>
-          comanda.items.some(
-            (item) =>
-              item.estado ===
-              "preparando",
-          ),
-      );
-    }, [comandas]);
+  const comandasListas = comandas.filter(
+    (comanda) =>
+      comanda.items.length > 0 &&
+      comanda.items.every(
+        (item) => item.estado === "listo",
+      ),
+  );
 
-  const comandasListas =
-    useMemo(() => {
-      return comandas.filter(
-        (comanda) =>
-          comanda.items.length > 0 &&
-          comanda.items.every(
-            (item) =>
-              item.estado ===
-              "listo",
-          ),
-      );
-    }, [comandas]);
-
-  // ============================================================
-  // RENDER ITEM
-  // ============================================================
-
-  const renderItem = (
-    item: ItemCocina,
-  ) => {
-    const procesando =
-      accionando === item.id;
+  const renderItem = (item: ItemCocina) => {
+    const procesando = accionando === item.id;
 
     return (
       <div
@@ -558,8 +352,7 @@ export default function CocinaPage() {
 
               <div className="min-w-0">
                 <p className="font-medium text-[#22201D]">
-                  {item.plato?.nombre ??
-                    "Producto"}
+                  {item.plato?.nombre ?? "Producto"}
                 </p>
 
                 {item.observaciones && (
@@ -572,8 +365,7 @@ export default function CocinaPage() {
           </div>
 
           <div className="shrink-0">
-            {item.estado ===
-              "pendiente" && (
+            {item.estado === "pendiente" && (
               <button
                 type="button"
                 disabled={procesando}
@@ -598,8 +390,7 @@ export default function CocinaPage() {
               </button>
             )}
 
-            {item.estado ===
-              "preparando" && (
+            {item.estado === "preparando" && (
               <button
                 type="button"
                 disabled={procesando}
@@ -624,8 +415,7 @@ export default function CocinaPage() {
               </button>
             )}
 
-            {item.estado ===
-              "listo" && (
+            {item.estado === "listo" && (
               <span className="flex items-center gap-1.5 rounded-full bg-[#E8F1EC] px-3 py-1.5 text-xs font-medium text-[#2E6B4F]">
                 <Check size={13} />
                 Listo
@@ -637,45 +427,28 @@ export default function CocinaPage() {
     );
   };
 
-  // ============================================================
-  // CARD COMANDA
-  // ============================================================
-
-  const renderComanda = (
-    comanda: ComandaCocina,
-  ) => {
+  const renderComanda = (comanda: ComandaCocina) => {
     const mesaNumero =
-      comanda.mesa?.nombre?.replace(
-        /^mesa\s*/i,
-        "",
-      ) ?? "Sin mesa";
+      comanda.mesa?.nombre?.replace(/^mesa\s*/i, "") ??
+      "Sin mesa";
 
-    const pendientes =
-      comanda.items.filter(
-        (item) =>
-          item.estado ===
-          "pendiente",
-      ).length;
+    const pendientes = comanda.items.filter(
+      (item) => item.estado === "pendiente",
+    ).length;
 
-    const preparando =
-      comanda.items.filter(
-        (item) =>
-          item.estado ===
-          "preparando",
-      ).length;
+    const preparando = comanda.items.filter(
+      (item) => item.estado === "preparando",
+    ).length;
 
-    const listos =
-      comanda.items.filter(
-        (item) =>
-          item.estado === "listo",
-      ).length;
+    const listos = comanda.items.filter(
+      (item) => item.estado === "listo",
+    ).length;
 
     return (
       <article
         key={comanda.id}
         className="overflow-hidden rounded-lg border border-[#E4DED3] bg-white shadow-sm"
       >
-        {/* HEADER */}
         <div className="border-b border-[#E4DED3] bg-[#FAF8F4] px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -684,7 +457,7 @@ export default function CocinaPage() {
                   Mesa
                 </span>
 
-                <span className=" if text-2xl text-[#22201D]">
+                <span className="text-2xl text-[#22201D]">
                   {mesaNumero}
                 </span>
               </div>
@@ -692,9 +465,7 @@ export default function CocinaPage() {
               <div className="mt-2 flex items-center gap-3 text-xs text-[#8A8375]">
                 <span className="flex items-center gap-1.5">
                   <Clock3 size={13} />
-                  {formatearHora(
-                    comanda.abierta_en,
-                  )}
+                  {formatearHora(comanda.abierta_en)}
                 </span>
 
                 <span>
@@ -708,22 +479,18 @@ export default function CocinaPage() {
             <div className="text-right">
               <span className="inline-flex items-center rounded-full bg-[#F1EEEA] px-3 py-1 text-[11px] font-medium text-[#6F695E]">
                 {comanda.items.length}{" "}
-                {comanda.items.length ===
-                1
+                {comanda.items.length === 1
                   ? "producto"
                   : "productos"}
               </span>
             </div>
           </div>
 
-          {/* RESUMEN ESTADOS */}
           <div className="mt-4 flex flex-wrap gap-2">
             {pendientes > 0 && (
               <span className="rounded-full bg-[#FFF5F2] px-2.5 py-1 text-[11px] font-medium text-[#A3402A]">
                 {pendientes} pendiente
-                {pendientes !== 1
-                  ? "s"
-                  : ""}
+                {pendientes !== 1 ? "s" : ""}
               </span>
             )}
 
@@ -736,96 +503,76 @@ export default function CocinaPage() {
             {listos > 0 && (
               <span className="rounded-full bg-[#E8F1EC] px-2.5 py-1 text-[11px] font-medium text-[#2E6B4F]">
                 {listos} listo
-                {listos !== 1
-                  ? "s"
-                  : ""}
+                {listos !== 1 ? "s" : ""}
               </span>
             )}
           </div>
         </div>
 
-        {/* ITEMS */}
         <div className="px-5">
-          {comanda.items.length ===
-          0 ? (
+          {comanda.items.length === 0 ? (
             <div className="py-8 text-center text-sm text-[#8A8375]">
-              Esta comanda no tiene
-              productos.
+              Esta comanda no tiene productos.
             </div>
           ) : (
-            comanda.items.map(
-              renderItem,
-            )
+            comanda.items.map(renderItem)
           )}
         </div>
       </article>
     );
   };
 
-  // ============================================================
-  // COLUMNA
-  // ============================================================
-
   const renderColumna = (
     titulo: string,
     descripcion: string,
     lista: ComandaCocina[],
-    icono: React.ReactNode,
-  ) => {
-    return (
-      <section className="flex min-w-0 flex-1 flex-col">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-md bg-[#F1EEEA] text-[#6F695E]">
-              {icono}
-            </div>
-
-            <div>
-              <h2 className="text-sm font-semibold text-[#22201D]">
-                {titulo}
-              </h2>
-
-              <p className="mt-0.5 text-xs text-[#8A8375]">
-                {descripcion}
-              </p>
-            </div>
+    icono: ReactNode,
+  ) => (
+    <section className="flex min-w-0 flex-1 flex-col">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-md bg-[#F1EEEA] text-[#6F695E]">
+            {icono}
           </div>
 
-          <span className="flex size-7 items-center justify-center rounded-full bg-[#22201D] text-xs font-semibold text-white">
-            {lista.length}
-          </span>
+          <div>
+            <h2 className="text-sm font-semibold text-[#22201D]">
+              {titulo}
+            </h2>
+
+            <p className="mt-0.5 text-xs text-[#8A8375]">
+              {descripcion}
+            </p>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-4">
-          {lista.length === 0 ? (
-            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[#D8D0C3] bg-[#FAF8F4] px-5 text-center">
-              <Utensils
-                size={25}
-                className="text-[#B8B1A4]"
-              />
+        <span className="flex size-7 items-center justify-center rounded-full bg-[#22201D] text-xs font-semibold text-white">
+          {lista.length}
+        </span>
+      </div>
 
-              <p className="mt-3 text-sm font-medium text-[#22201D]">
-                No hay comandas
-              </p>
+      <div className="flex flex-col gap-4">
+        {lista.length === 0 ? (
+          <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[#D8D0C3] bg-[#FAF8F4] px-5 text-center">
+            <Utensils
+              size={25}
+              className="text-[#B8B1A4]"
+            />
 
-              <p className="mt-1 text-xs text-[#8A8375]">
-                Esta sección está al
-                día.
-              </p>
-            </div>
-          ) : (
-            lista.map(
-              renderComanda,
-            )
-          )}
-        </div>
-      </section>
-    );
-  };
+            <p className="mt-3 text-sm font-medium text-[#22201D]">
+              No hay comandas
+            </p>
 
-  // ============================================================
-  // LOADING
-  // ============================================================
+            <p className="mt-1 text-xs text-[#8A8375]">
+              Esta sección está al día.
+            </p>
+          </div>
+        ) : (
+          lista.map(renderComanda)
+        )}
+      </div>
+    </section>
+  );
 
   if (loading) {
     return (
@@ -842,16 +589,8 @@ export default function CocinaPage() {
     );
   }
 
-  // ============================================================
-  // RENDER
-  // ============================================================
-
   return (
     <main className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-6">
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
-
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
@@ -860,13 +599,13 @@ export default function CocinaPage() {
             </div>
 
             <div>
-              <h1 className=" text-2xl text-[#22201D]">
+              <h1 className="text-2xl text-[#22201D]">
                 Cocina
               </h1>
 
               <p className="mt-1 text-sm text-[#8A8375]">
-                Gestiona las comandas y
-                prepara los pedidos.
+                Gestiona las comandas y prepara los
+                pedidos.
               </p>
             </div>
           </div>
@@ -874,28 +613,20 @@ export default function CocinaPage() {
 
         <button
           type="button"
-          onClick={() =>
-            void actualizar()
-          }
+          onClick={() => void actualizar()}
           disabled={actualizando}
           className="flex items-center justify-center gap-2 rounded-md border border-[#E4DED3] bg-white px-4 py-2.5 text-sm font-medium text-[#22201D] transition hover:bg-[#F5F2ED] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw
             size={15}
             className={
-              actualizando
-                ? "animate-spin"
-                : ""
+              actualizando ? "animate-spin" : ""
             }
           />
 
           Actualizar
         </button>
       </header>
-
-      {/* ======================================================
-          ERROR
-      ====================================================== */}
 
       {error && (
         <div className="flex items-start gap-3 border border-[#E7B8AD] bg-[#FFF5F2] px-4 py-3 text-sm text-[#A3402A]">
@@ -909,16 +640,12 @@ export default function CocinaPage() {
               Ocurrió un error
             </p>
 
-            <p className="mt-0.5">
-              {error}
-            </p>
+            <p className="mt-0.5">{error}</p>
           </div>
 
           <button
             type="button"
-            onClick={() =>
-              setError(null)
-            }
+            onClick={() => setError(null)}
             className="text-xs underline"
           >
             cerrar
@@ -926,17 +653,13 @@ export default function CocinaPage() {
         </div>
       )}
 
-      {/* ======================================================
-          RESUMEN
-      ====================================================== */}
-
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg border border-[#E4DED3] bg-white px-4 py-3">
           <p className="text-xs text-[#8A8375]">
             Comandas abiertas
           </p>
 
-          <p className="mt-1  text-2xl text-[#22201D]">
+          <p className="mt-1 text-2xl text-[#22201D]">
             {comandas.length}
           </p>
         </div>
@@ -946,7 +669,7 @@ export default function CocinaPage() {
             Pendientes
           </p>
 
-          <p className="mt-1  text-2xl text-[#A3402A]">
+          <p className="mt-1 text-2xl text-[#A3402A]">
             {comandasPendientes.length}
           </p>
         </div>
@@ -956,7 +679,7 @@ export default function CocinaPage() {
             Preparando
           </p>
 
-          <p className="mt-1   text-2xl text-[#6F695E]">
+          <p className="mt-1 text-2xl text-[#6F695E]">
             {comandasPreparando.length}
           </p>
         </div>
@@ -966,15 +689,11 @@ export default function CocinaPage() {
             Listas
           </p>
 
-          <p className="mt-1  text-2xl text-[#2E6B4F]">
+          <p className="mt-1 text-2xl text-[#2E6B4F]">
             {comandasListas.length}
           </p>
         </div>
       </div>
-
-      {/* ======================================================
-          COCINA
-      ====================================================== */}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {renderColumna(
@@ -1001,3 +720,4 @@ export default function CocinaPage() {
     </main>
   );
 }
+

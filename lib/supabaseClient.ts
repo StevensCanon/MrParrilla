@@ -1,19 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from "@supabase/ssr";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
-export const supabase = createClient(
+export const supabase = createBrowserClient(
   supabaseUrl,
-  supabaseAnonKey
+  supabaseKey
 );
-
-export function createAuthedClient(token: string) {
-  return createClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      accessToken: async () => token,
-    }
-  );
-}

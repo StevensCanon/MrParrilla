@@ -19,6 +19,13 @@ type Usuario = {
   rol: string;
 };
 
+type LoginResponse = {
+  access_token?: string;
+  refresh_token?: string;
+  usuario?: Usuario;
+  error?: string;
+};
+
 const RUTA_POR_ROL: Record<string, string> = {
   admin: "/dashboard",
   cajero: "/dashboard",
@@ -71,39 +78,40 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
 
-  // ============================================================
-  // CARGAR USUARIOS
-  // ============================================================
-
   useEffect(() => {
-    async function cargarUsuarios() {
-      const { data, error } = await supabase.rpc("usuarios_para_login");
+    let cancelado = false;
 
-      if (!error) {
-        setUsuarios(data || []);
+    const cargarUsuarios = async () => {
+      const { data, error: usuariosError } =
+        await supabase.rpc("usuarios_para_login");
+
+      if (cancelado || usuariosError) {
+        return;
       }
-    }
+
+      setUsuarios(data ?? []);
+    };
 
     void cargarUsuarios();
+
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
-  // ============================================================
-  // TECLADO NUMÉRICO
-  // ============================================================
-
-  async function tecla(k: string) {
+  const tecla = async (teclaPresionada: string) => {
     setError("");
 
-    if (k === "borrar") {
+    if (teclaPresionada === "borrar") {
       setPin((actual) => actual.slice(0, -1));
       return;
     }
 
-    if (pin.length >= 4 || !seleccionado) {
+    if (!seleccionado || pin.length >= 4) {
       return;
     }
 
-    const nuevoPin = pin + k;
+    const nuevoPin = pin + teclaPresionada;
 
     setPin(nuevoPin);
 
@@ -114,7 +122,7 @@ export default function LoginPage() {
     setCargando(true);
 
     try {
-      const res = await fetch("/api/login-pin", {
+      const response = await fetch("/api/login-pin", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -125,58 +133,60 @@ export default function LoginPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = (await response.json()) as LoginResponse;
 
-      if (!res.ok) {
-        setError(data.error || "PIN incorrecto");
+      if (!response.ok) {
+        setError(data.error ?? "PIN incorrecto");
         setPin("");
         return;
       }
 
-      sessionStorage.setItem("sesion", JSON.stringify(data));
+      const { access_token, refresh_token, usuario } = data;
 
-      router.push(
-        RUTA_POR_ROL[data.usuario.rol] || "/dashboard",
-      );
+      if (!access_token || !refresh_token || !usuario) {
+        setError("La respuesta de autenticación es inválida.");
+        setPin("");
+        return;
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token,
+        refresh_token,
+      });
+
+      if (sessionError) {
+        setError("No se pudo iniciar la sesión.");
+        setPin("");
+        return;
+      }
+
+      router.push(RUTA_POR_ROL[usuario.rol] ?? "/dashboard");
     } catch {
-      setError(
-        "No se pudo conectar con el servidor.",
-      );
-
+      setError("No se pudo conectar con el servidor.");
       setPin("");
     } finally {
       setCargando(false);
     }
-  }
+  };
 
-  // ============================================================
-  // CAMBIAR USUARIO
-  // ============================================================
-
-  function cambiarUsuario() {
+  const cambiarUsuario = () => {
     setSeleccionado(null);
     setPin("");
     setError("");
-  }
-
-  // ============================================================
-  // SELECCIÓN DE USUARIO
-  // ============================================================
+  };
 
   if (!seleccionado) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F6F5F2] px-4 py-8">
         <div className="w-full max-w-md">
-
-          {/* LOGO / MARCA */}
           <div className="mb-8 text-center">
-            <div className="mx-auto  flex items-center justify-center ">
-            <Image
+            <div className="mx-auto flex items-center justify-center">
+              <Image
                 src="/Logo.png"
                 alt="Logo"
                 width={100}
                 height={100}
-                className=" object-contain "
+                className="object-contain"
               />
             </div>
 
@@ -189,9 +199,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* CARD */}
           <div className="rounded-2xl border border-[#E6E3DC] bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-
             <div className="mb-5">
               <p className="text-sm font-semibold text-[#22201D]">
                 Selecciona tu usuario
@@ -209,102 +217,42 @@ export default function LoginPage() {
                     key={usuario.id}
                     type="button"
                     onClick={() => setSeleccionado(usuario)}
-                    className="
-                      group
-                      flex
-                      w-full
-                      items-center
-                      gap-3
-                      rounded-xl
-                      border
-                      border-[#E8E5DE]
-                      bg-white
-                      p-3
-                      text-left
-                      transition-all
-                      duration-200
-                      hover:border-[#22201D]
-                      hover:bg-[#FAF9F7]
-                      hover:shadow-sm
-                      active:scale-[0.99]
-                    "
+                    className="group flex w-full items-center gap-3 rounded-xl border border-[#E8E5DE] bg-white p-3 text-left transition-all duration-200 hover:border-[#22201D] hover:bg-[#FAF9F7] hover:shadow-sm active:scale-[0.99]"
                   >
-                    {/* AVATAR */}
-                    <div className="
-                      flex
-                      size-11
-                      shrink-0
-                      items-center
-                      justify-center
-                      rounded-xl
-                      bg-[#22201D]
-                      text-sm
-                      font-semibold
-                      text-white
-                    ">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#22201D] text-sm font-semibold text-white">
                       {iniciales(usuario.nombre)}
                     </div>
 
-                    {/* INFORMACIÓN */}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-[#22201D]">
                         {usuario.nombre}
                       </p>
 
-                      <span className="
-                        mt-1
-                        inline-flex
-                        rounded-md
-                        bg-[#F1F0ED]
-                        px-2
-                        py-0.5
-                        text-[11px]
-                        font-medium
-                        capitalize
-                        text-[#777166]
-                      ">
+                      <span className="mt-1 inline-flex rounded-md bg-[#F1F0ED] px-2 py-0.5 text-[11px] font-medium capitalize text-[#777166]">
                         {nombreRol(usuario.rol)}
                       </span>
                     </div>
 
-                    {/* FLECHA */}
                     <ChevronRight
                       size={17}
-                      className="
-                        shrink-0
-                        text-[#B7B2A8]
-                        transition-transform
-                        duration-200
-                        group-hover:translate-x-0.5
-                        group-hover:text-[#22201D]
-                      "
+                      className="shrink-0 text-[#B7B2A8] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[#22201D]"
                     />
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="
-                rounded-xl
-                border
-                border-dashed
-                border-[#DDD9D0]
-                bg-[#FAF9F7]
-                px-4
-                py-8
-                text-center
-              ">
+              <div className="rounded-xl border border-dashed border-[#DDD9D0] bg-[#FAF9F7] px-4 py-8 text-center">
                 <p className="text-sm font-medium text-[#22201D]">
                   No hay usuarios disponibles
                 </p>
 
                 <p className="mt-1 text-xs text-[#8A8577]">
-                  Créa usuarios activos desde Supabase.
+                  Crea usuarios activos desde Supabase.
                 </p>
               </div>
             )}
           </div>
 
-          {/* FOOTER */}
           <p className="mt-5 text-center text-[11px] text-[#AAA49A]">
             Acceso autorizado únicamente para personal
           </p>
@@ -313,71 +261,22 @@ export default function LoginPage() {
     );
   }
 
-  // ============================================================
-  // INGRESO DE PIN
-  // ============================================================
-
   return (
-    <main className="
-      flex
-      min-h-screen
-      items-center
-      justify-center
-      bg-[#F6F5F2]
-      px-4
-      py-8
-    ">
+    <main className="flex min-h-screen items-center justify-center bg-[#F6F5F2] px-4 py-8">
       <div className="w-full max-w-sm">
-
-        {/* VOLVER */}
         <button
           type="button"
           onClick={cambiarUsuario}
           disabled={cargando}
-          className="
-            mb-6
-            flex
-            items-center
-            gap-1.5
-            text-sm
-            font-medium
-            text-[#777166]
-            transition-colors
-            hover:text-[#22201D]
-            disabled:pointer-events-none
-            disabled:opacity-50
-          "
+          className="mb-6 flex items-center gap-1.5 text-sm font-medium text-[#777166] transition-colors hover:text-[#22201D] disabled:pointer-events-none disabled:opacity-50"
         >
           <ChevronLeft size={17} />
-
           Cambiar usuario
         </button>
 
-        {/* CARD PRINCIPAL */}
-        <div className="
-          rounded-2xl
-          border
-          border-[#E6E3DC]
-          bg-white
-          p-6
-          shadow-[0_8px_30px_rgba(0,0,0,0.05)]
-        ">
-
-          {/* USUARIO */}
+        <div className="rounded-2xl border border-[#E6E3DC] bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
           <div className="flex flex-col items-center text-center">
-
-            <div className="
-              mb-3
-              flex
-              size-14
-              items-center
-              justify-center
-              rounded-2xl
-              bg-[#22201D]
-              text-base
-              font-semibold
-              text-white
-            ">
+            <div className="mb-3 flex size-14 items-center justify-center rounded-2xl bg-[#22201D] text-base font-semibold text-white">
               {iniciales(seleccionado.nombre)}
             </div>
 
@@ -385,59 +284,32 @@ export default function LoginPage() {
               {seleccionado.nombre}
             </p>
 
-            <span className="
-              mt-1
-              rounded-md
-              bg-[#F1F0ED]
-              px-2
-              py-0.5
-              text-[11px]
-              font-medium
-              text-[#777166]
-            ">
+            <span className="mt-1 rounded-md bg-[#F1F0ED] px-2 py-0.5 text-[11px] font-medium text-[#777166]">
               {nombreRol(seleccionado.rol)}
             </span>
           </div>
 
-          {/* PIN */}
           <div className="mt-8">
-
             <div className="mb-4 flex items-center justify-center gap-3">
-              {[0, 1, 2, 3].map((i) => (
+              {[0, 1, 2, 3].map((indice) => (
                 <div
-                  key={i}
-                  className={`
-                    size-3
-                    rounded-full
-                    border
-                    transition-all
-                    duration-200
-                    ${
-                      i < pin.length
-                        ? "border-[#22201D] bg-[#22201D] scale-110"
-                        : "border-[#C9C5BC] bg-transparent"
-                    }
-                  `}
+                  key={indice}
+                  className={`size-3 rounded-full border transition-all duration-200 ${
+                    indice < pin.length
+                      ? "scale-110 border-[#22201D] bg-[#22201D]"
+                      : "border-[#C9C5BC] bg-transparent"
+                  }`}
                 />
               ))}
             </div>
 
-            {/* ESTADO */}
-            <div className="
-              flex
-              h-6
-              items-center
-              justify-center
-              gap-1.5
-              text-xs
-            ">
+            <div className="flex h-6 items-center justify-center gap-1.5 text-xs">
               {cargando ? (
                 <>
                   <Loader2
                     size={13}
                     className="animate-spin text-[#777166]"
                   />
-
                   <span className="text-[#777166]">
                     Verificando PIN...
                   </span>
@@ -454,81 +326,39 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* TECLADO */}
-          <div className="
-            mt-7
-            grid
-            grid-cols-3
-            gap-2
-          ">
-            {TECLAS.map((k, i) =>
-              k === "" ? (
-                <div key={i} />
+          <div className="mt-7 grid grid-cols-3 gap-2">
+            {TECLAS.map((teclaActual, indice) =>
+              teclaActual === "" ? (
+                <div key={indice} />
               ) : (
                 <button
-                  key={i}
+                  key={indice}
                   type="button"
-                  onClick={() => void tecla(k)}
+                  onClick={() => void tecla(teclaActual)}
                   disabled={cargando}
-                  className="
-                    flex
-                    h-14
-                    items-center
-                    justify-center
-                    rounded-xl
-                    border
-                    border-[#E8E5DE]
-                    bg-[#FAF9F7]
-                    text-lg
-                    font-medium
-                    tabular-nums
-                    text-[#22201D]
-                    transition-all
-                    duration-150
-                    hover:border-[#D2CEC5]
-                    hover:bg-[#F3F1EC]
-                    active:scale-95
-                    active:bg-[#EAE7E0]
-                    disabled:cursor-not-allowed
-                    disabled:opacity-40
-                  "
+                  className="flex h-14 items-center justify-center rounded-xl border border-[#E8E5DE] bg-[#FAF9F7] text-lg font-medium tabular-nums text-[#22201D] transition-all duration-150 hover:border-[#D2CEC5] hover:bg-[#F3F1EC] active:scale-95 active:bg-[#EAE7E0] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {k === "borrar" ? (
+                  {teclaActual === "borrar" ? (
                     <Delete size={19} />
                   ) : (
-                    k
+                    teclaActual
                   )}
                 </button>
               ),
             )}
           </div>
 
-          {/* SEGURIDAD */}
-          <div className="
-            mt-6
-            flex
-            items-center
-            justify-center
-            gap-1.5
-            text-[11px]
-            text-[#AAA49A]
-          ">
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-[#AAA49A]">
             <ShieldCheck size={13} />
-
             Acceso seguro
           </div>
         </div>
 
-        {/* MARCA */}
-        <p className="
-          mt-5
-          text-center
-          text-[11px]
-          text-[#AAA49A]
-        ">
+        <p className="mt-5 text-center text-[11px] text-[#AAA49A]">
           MrParrilla · Sistema interno
         </p>
       </div>
     </main>
   );
 }
+
