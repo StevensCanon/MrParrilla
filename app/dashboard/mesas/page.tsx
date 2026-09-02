@@ -80,22 +80,10 @@ type ItemSeleccionado = {
 // ============================================================
 
 const categorias = [
-  {
-    value: "desayuno",
-    label: "Desayunos",
-  },
-  {
-    value: "almuerzo",
-    label: "Almuerzos",
-  },
-  {
-    value: "bebida",
-    label: "Bebidas",
-  },
-  {
-    value: "adicional",
-    label: "Adicionales",
-  },
+  { value: "desayuno", label: "Desayunos" },
+  { value: "almuerzo", label: "Almuerzos" },
+  { value: "bebida", label: "Bebidas" },
+  { value: "adicional", label: "Adicionales" },
 ];
 
 // ============================================================
@@ -114,8 +102,6 @@ const money = (n: number) =>
 // ============================================================
 
 export default function MesasPage() {
-  console.log("🔥 MESAS PAGE SE ESTÁ EJECUTANDO");
-
   const router = useRouter();
 
   // ============================================================
@@ -125,11 +111,6 @@ export default function MesasPage() {
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [comandas, setComandas] = useState<Comanda[]>([]);
-
-  // ============================================================
-  // ITEMS DE LAS COMANDAS ABIERTAS
-  // ============================================================
-
   const [itemsComandas, setItemsComandas] = useState<ComandaItem[]>([]);
 
   // ============================================================
@@ -158,15 +139,15 @@ export default function MesasPage() {
   // ============================================================
 
   const [mesaSeleccionada, setMesaSeleccionada] = useState<Mesa | null>(null);
-
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
 
   // ============================================================
-  // DIALOGO DETALLE CAJERO
+  // DIÁLOGO DETALLE CAJERO
   // ============================================================
 
-  const [mesaDetalleCajero, setMesaDetalleCajero] = useState<Mesa | null>(null);
-
+  const [mesaDetalleCajero, setMesaDetalleCajero] = useState<Mesa | null>(
+    null,
+  );
   const [dialogoDetalleCajero, setDialogoDetalleCajero] = useState(false);
 
   // ============================================================
@@ -176,7 +157,6 @@ export default function MesasPage() {
   const [itemsSeleccionados, setItemsSeleccionados] = useState<
     ItemSeleccionado[]
   >([]);
-
   const [busqueda, setBusqueda] = useState("");
 
   // ============================================================
@@ -184,11 +164,8 @@ export default function MesasPage() {
   // ============================================================
 
   const [dialogoCrearMesa, setDialogoCrearMesa] = useState(false);
-
   const [dialogoEditarMesa, setDialogoEditarMesa] = useState(false);
-
   const [mesaEditando, setMesaEditando] = useState<Mesa | null>(null);
-
   const [numeroMesa, setNumeroMesa] = useState("");
 
   // ============================================================
@@ -227,19 +204,9 @@ export default function MesasPage() {
   const cargarRolUsuario = useCallback(async (token: string) => {
     try {
       const supabase = createAuthedClient(token);
-
-      console.log("Token enviado:", token ? "EXISTE" : "NO EXISTE");
-
       const { data: rol, error } = await supabase.rpc("rol_actual");
 
-      console.log("RPC rol_actual:", {
-        rol,
-        error,
-      });
-
       if (error) {
-        console.error("Error obteniendo rol:", error);
-
         setRolUsuario(null);
         return;
       }
@@ -248,12 +215,8 @@ export default function MesasPage() {
         .trim()
         .toLowerCase();
 
-      console.log("ROL NORMALIZADO:", rolNormalizado);
-
       setRolUsuario(rolNormalizado);
-    } catch (err) {
-      console.error("Error obteniendo rol:", err);
-
+    } catch {
       setRolUsuario(null);
     }
   }, []);
@@ -278,19 +241,6 @@ export default function MesasPage() {
 
       const supabase = createAuthedClient(token);
 
-      console.log("TOKEN DEL LOGIN:", token);
-
-      const { data: uidData, error: uidError } =
-        await supabase.rpc("debug_auth_uid");
-
-      console.log("DEBUG AUTH UID:", uidData);
-      console.log("DEBUG AUTH UID ERROR:", uidError);
-
-      const { data: rol, error: rolError } = await supabase.rpc("rol_actual");
-
-      console.log("ROL RPC:", rol);
-      console.log("ROL RPC ERROR:", rolError);
-
       const [
         { data: mesasData, error: mesasError },
         { data: platosData, error: platosError },
@@ -299,34 +249,25 @@ export default function MesasPage() {
         // --------------------------------------------------------
         // MESAS ACTIVAS
         // --------------------------------------------------------
-
         supabase
           .from("mesas")
           .select("id, nombre, activa")
           .eq("activa", true)
-          .order("nombre", {
-            ascending: true,
-          }),
+          .order("nombre", { ascending: true }),
 
         // --------------------------------------------------------
         // PLATOS DISPONIBLES
         // --------------------------------------------------------
-
         supabase
           .from("platos")
           .select("id, nombre, categoria, precio, disponible")
           .eq("disponible", true)
-          .order("categoria", {
-            ascending: true,
-          })
-          .order("nombre", {
-            ascending: true,
-          }),
+          .order("categoria", { ascending: true })
+          .order("nombre", { ascending: true }),
 
         // --------------------------------------------------------
         // COMANDAS ABIERTAS
         // --------------------------------------------------------
-
         supabase
           .from("comandas")
           .select("id, mesa_id, mesero_id, estado")
@@ -335,22 +276,16 @@ export default function MesasPage() {
       ]);
 
       if (mesasError) {
-        console.error("Error cargando mesas:", mesasError);
-
         setError(mesasError.message);
         return;
       }
 
       if (platosError) {
-        console.error("Error cargando platos:", platosError);
-
         setError(platosError.message);
         return;
       }
 
       if (comandasError) {
-        console.error("Error cargando comandas:", comandasError);
-
         setError(comandasError.message);
         return;
       }
@@ -359,14 +294,11 @@ export default function MesasPage() {
 
       setMesas(
         ((mesasData as Mesa[]) ?? []).sort((a, b) =>
-          a.nombre.localeCompare(b.nombre, undefined, {
-            numeric: true,
-          }),
+          a.nombre.localeCompare(b.nombre, undefined, { numeric: true }),
         ),
       );
 
       setPlatos((platosData as Plato[]) ?? []);
-
       setComandas(comandasFinales);
 
       // ========================================================
@@ -382,13 +314,9 @@ export default function MesasPage() {
             "id, comanda_id, plato_id, cantidad, precio_unitario, estado, observaciones",
           )
           .in("comanda_id", idsComandas)
-          .order("creado_en", {
-            ascending: true,
-          });
+          .order("creado_en", { ascending: true });
 
         if (itemsError) {
-          console.error("Error cargando items de comandas:", itemsError);
-
           setError(itemsError.message);
           return;
         }
@@ -397,9 +325,7 @@ export default function MesasPage() {
       } else {
         setItemsComandas([]);
       }
-    } catch (err) {
-      console.error(err);
-
+    } catch {
       setError("No se pudo cargar la información de las mesas.");
     } finally {
       setLoading(false);
@@ -421,7 +347,8 @@ export default function MesasPage() {
   const estaOcupada = useCallback(
     (mesaId: string) => {
       return comandas.some(
-        (comanda) => comanda.mesa_id === mesaId && comanda.estado === "abierta",
+        (comanda) =>
+          comanda.mesa_id === mesaId && comanda.estado === "abierta",
       );
     },
     [comandas],
@@ -497,7 +424,9 @@ export default function MesasPage() {
       return platos;
     }
 
-    return platos.filter((plato) => plato.nombre.toLowerCase().includes(texto));
+    return platos.filter((plato) =>
+      plato.nombre.toLowerCase().includes(texto),
+    );
   }, [platos, busqueda]);
 
   // ============================================================
@@ -563,13 +492,9 @@ export default function MesasPage() {
         "id, comanda_id, plato_id, cantidad, precio_unitario, estado, observaciones",
       )
       .eq("comanda_id", comandaId)
-      .order("creado_en", {
-        ascending: true,
-      });
+      .order("creado_en", { ascending: true });
 
     if (errorItems) {
-      console.error("Error cargando items:", errorItems);
-
       throw new Error(errorItems.message);
     }
 
@@ -659,9 +584,7 @@ export default function MesasPage() {
 
       setItemsSeleccionados(items);
       setDialogoAbierto(true);
-    } catch (err) {
-      console.error(err);
-
+    } catch {
       setError("No se pudo cargar la comanda de la mesa.");
     } finally {
       setGuardando(false);
@@ -692,10 +615,7 @@ export default function MesasPage() {
       if (existente) {
         return actuales.map((item) =>
           item.plato_id === plato.id
-            ? {
-                ...item,
-                cantidad: item.cantidad + 1,
-              }
+            ? { ...item, cantidad: item.cantidad + 1 }
             : item,
         );
       }
@@ -722,10 +642,7 @@ export default function MesasPage() {
       actuales
         .map((item) =>
           item.plato_id === platoId
-            ? {
-                ...item,
-                cantidad: item.cantidad - 1,
-              }
+            ? { ...item, cantidad: item.cantidad - 1 }
             : item,
         )
         .filter((item) => item.cantidad > 0),
@@ -770,7 +687,6 @@ export default function MesasPage() {
     }
 
     const numeroNormalizado = String(Number(numero));
-
     const nombre = `Mesa ${numeroNormalizado}`;
 
     const yaExiste = mesas.some(
@@ -794,33 +710,24 @@ export default function MesasPage() {
 
       const { data, error } = await supabase
         .from("mesas")
-        .insert({
-          nombre,
-          activa: true,
-        })
+        .insert({ nombre, activa: true })
         .select("id, nombre, activa")
         .single();
 
       if (error) {
-        console.error("Error creando mesa:", error);
-
         setError(error.message);
         return;
       }
 
       setMesas((actuales) =>
         [...actuales, data as Mesa].sort((a, b) =>
-          a.nombre.localeCompare(b.nombre, undefined, {
-            numeric: true,
-          }),
+          a.nombre.localeCompare(b.nombre, undefined, { numeric: true }),
         ),
       );
 
       setNumeroMesa("");
       setDialogoCrearMesa(false);
-    } catch (err) {
-      console.error(err);
-
+    } catch {
       setError("No se pudo crear la mesa.");
     } finally {
       setCreandoMesa(false);
@@ -867,7 +774,6 @@ export default function MesasPage() {
     }
 
     const numeroNormalizado = String(Number(numero));
-
     const nombre = `Mesa ${numeroNormalizado}`;
 
     const yaExiste = mesas.some(
@@ -893,26 +799,22 @@ export default function MesasPage() {
 
       const { data, error } = await supabase
         .from("mesas")
-        .update({
-          nombre,
-        })
+        .update({ nombre })
         .eq("id", mesaEditando.id)
         .select("id, nombre, activa")
         .single();
 
       if (error) {
-        console.error("Error editando mesa:", error);
-
         throw new Error(error.message);
       }
 
       setMesas((actuales) =>
         actuales
-          .map((mesa) => (mesa.id === mesaEditando.id ? (data as Mesa) : mesa))
+          .map((mesa) =>
+            mesa.id === mesaEditando.id ? (data as Mesa) : mesa,
+          )
           .sort((a, b) =>
-            a.nombre.localeCompare(b.nombre, undefined, {
-              numeric: true,
-            }),
+            a.nombre.localeCompare(b.nombre, undefined, { numeric: true }),
           ),
       );
 
@@ -920,8 +822,6 @@ export default function MesasPage() {
       setMesaEditando(null);
       setNumeroMesa("");
     } catch (err) {
-      console.error(err);
-
       setError(
         err instanceof Error ? err.message : "No se pudo editar la mesa.",
       );
@@ -966,18 +866,17 @@ export default function MesasPage() {
     try {
       const supabase = createAuthedClient(token);
 
-      const { error } = await supabase.from("mesas").delete().eq("id", mesa.id);
+      const { error } = await supabase
+        .from("mesas")
+        .delete()
+        .eq("id", mesa.id);
 
       if (error) {
-        console.error("Error eliminando mesa:", error);
-
         throw new Error(error.message);
       }
 
       setMesas((actuales) => actuales.filter((m) => m.id !== mesa.id));
     } catch (err) {
-      console.error(err);
-
       setError(
         err instanceof Error ? err.message : "No se pudo eliminar la mesa.",
       );
@@ -1011,7 +910,6 @@ export default function MesasPage() {
       const supabase = createAuthedClient(token);
 
       const { data: userData } = await supabase.auth.getUser();
-
       const usuarioId = userData.user?.id;
 
       if (!usuarioId) {
@@ -1037,11 +935,8 @@ export default function MesasPage() {
           .single();
 
         if (errorComanda || !nuevaComanda) {
-          console.error("Error creando comanda:", errorComanda);
-
           if (errorComanda?.code === "23505") {
             await cargarDatos();
-
             throw new Error("Esta mesa acaba de ser ocupada por otro mesero.");
           }
 
@@ -1128,9 +1023,7 @@ export default function MesasPage() {
             if (itemExistente.cantidad !== itemSeleccionado.cantidad) {
               const { error: errorUpdate } = await supabase
                 .from("comanda_items")
-                .update({
-                  cantidad: itemSeleccionado.cantidad,
-                })
+                .update({ cantidad: itemSeleccionado.cantidad })
                 .eq("id", itemExistente.id);
 
               if (errorUpdate) {
@@ -1162,8 +1055,6 @@ export default function MesasPage() {
       setItemsSeleccionados([]);
       setBusqueda("");
     } catch (err) {
-      console.error("Error confirmando comanda:", err);
-
       setError(
         err instanceof Error
           ? err.message
@@ -1234,8 +1125,6 @@ export default function MesasPage() {
 
       cerrarDialogo();
     } catch (err) {
-      console.error("Error liberando mesa:", err);
-
       setError(
         err instanceof Error ? err.message : "No se pudo liberar la mesa.",
       );
@@ -1272,7 +1161,7 @@ export default function MesasPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className=" if text-2xl text-[#22201D]">Mesas</h1>
+            <h1 className="text-2xl text-[#22201D]">Mesas</h1>
 
             {rolUsuario && (
               <span className="rounded-full bg-[#F1EEEA] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#6F695E]">
@@ -1354,92 +1243,56 @@ export default function MesasPage() {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {mesas.map((mesa) => {
             const ocupada = estaOcupada(mesa.id);
-
             const totalMesa = ocupada ? obtenerTotalMesa(mesa.id) : 0;
+            const numero = mesa.nombre.replace(/^mesa\s*/i, "");
 
             return (
               <div
                 key={mesa.id}
-                className={`group relative flex min-h-[150px] flex-col items-center justify-center rounded-lg border bg-white p-5 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+                className={`group relative flex min-h-[190px] flex-col items-center justify-between rounded-lg border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                   ocupada ? "border-[#D8D0C3]" : "border-[#E4DED3]"
                 }`}
               >
                 {/* ==================================================
-                    ACCIONES ADMIN
+                    BADGE LIBRE / OCUPADA — esquina superior derecha
                 ================================================== */}
 
-                {esAdmin && (
-                  <div className="absolute right-2 top-2 f-FLIA-CSlex gap-1">
-                    <button
-                      type="button"
-                      onClick={(e) => abrirEditarMesa(e, mesa)}
-                      className="flex size-7 items-center justify-center rounded-md border border-[#E4DED3] bg-white text-[#6F695E] transition hover:bg-[#F5F2ED] hover:text-[#22201D]"
-                      title="Editar mesa"
-                    >
-                      <Pencil size={13} />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => void eliminarMesa(e, mesa)}
-                      disabled={eliminandoMesa || ocupada}
-                      className="flex size-7 items-center justify-center rounded-md border border-[#E4DED3] bg-white text-[#A3402A] transition hover:bg-[#FFF5F2] disabled:cursor-not-allowed disabled:opacity-40"
-                      title={
-                        ocupada
-                          ? "No puedes eliminar una mesa ocupada"
-                          : "Eliminar mesa"
-                      }
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                )}
+                <span
+                  className={`absolute right-2 top-2 z-10 rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide shadow-sm ${
+                    ocupada
+                      ? "bg-red-800 text-white"
+                      : "bg-green-700 text-white"
+                  }`}
+                >
+                  {ocupada ? "Ocupada" : "Libre"}
+                </span>
 
                 {/* ==================================================
-                    BOTÓN DE LA MESA
+                    IMAGEN DE LA MESA + NÚMERO
                 ================================================== */}
 
                 <button
                   type="button"
                   onClick={() => void abrirMesa(mesa)}
-                  className="relative flex h-full w-full flex-1 items-center justify-center overflow-hidden rounded-xl"
+                  className="relative mt-2 flex h-40 w-50 items-center justify-center"
                 >
-                  {/* Imagen de la mesa */}
                   <Image
                     src="/mesa.png"
                     alt=""
                     fill
-                    className="object-contain p-0"
+                    className="object-contain"
                   />
 
-                  {/* Nombre y número centrados sobre la mesa */}
-                  <div className="relative z-10 flex flex-col items-center justify-center">
-                    <span className="text-sm font-semibold uppercase tracking-wide text-white">
-                      Mesa
-                    </span>
-
-                    <span className="text-4xl font-semibold leading-none text-white">
-                      {mesa.nombre.replace(/^mesa\s*/i, "")}
-                    </span>
-                  </div>
-
-                  {/* Badge - esquina superior derecha */}
-                  <span
-                    className={`absolute items-end top-3  rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide shadow-sm ${
-                      ocupada
-                        ? "bg-red-800 text-white"
-                        : "bg-green-700 text-white"
-                    }`}
-                  >
-                    {ocupada ? "Ocupada" : "Libre"}
+                  <span className="relative  text-3xl pb-3 font-semibold leading-none pointer-events-none text-white ">
+                    {numero}
                   </span>
 
-                  {/* ==================================================
+                  {/* ==============================================
                       HOVER TOTAL CAJERO
-                  ================================================== */}
+                  =============================================== */}
 
                   {esCajero && ocupada && (
-                    <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 w-[190px] -translate-x-1/2 translate-y-1 rounded-lg border border-[#D8D0C3] bg-white px-4 py-3 text-left opacity-0 shadow-xl transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100">
+                    <div className="pointer-events-none absolute   w-[160px]   rounded-lg border border-[#D8D0C3] bg-white px-4 py-3 text-left opacity-0 shadow-xl transition-all duration-150  group-hover:opacity-100 ">
                       <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-[#8A8375]">
                         <Receipt size={13} />
                         Total mesa
@@ -1455,6 +1308,41 @@ export default function MesasPage() {
                     </div>
                   )}
                 </button>
+
+                <p className="mt-1 text-xs font-medium uppercase tracking-wide text-[#8A8375]">
+                  Mesa {numero}
+                </p>
+
+                {/* ==================================================
+                    ACCIONES ADMIN — debajo de la mesa
+                ================================================== */}
+
+                {esAdmin && (
+                  <div className="mt-3 flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => abrirEditarMesa(e, mesa)}
+                      className="flex size-7 items-center justify-center rounded-md border border-zinc-400 bg-white text-[#6F695E] transition hover:bg-[#F5F2ED] hover:text-[#22201D]"
+                      title="Editar mesa"
+                    >
+                      <Pencil size={13} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => void eliminarMesa(e, mesa)}
+                      disabled={eliminandoMesa || ocupada}
+                      className="flex size-7 items-center justify-center rounded-md border border-[#E4DED3] bg-white text-[#A3402A] transition hover:bg-[#FFF5F2] disabled:cursor-not-allowed disabled:opacity-40 border-red-500"
+                      title={
+                        ocupada
+                          ? "No puedes eliminar una mesa ocupada"
+                          : "Eliminar mesa"
+                      }
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1468,7 +1356,7 @@ export default function MesasPage() {
       <Dialog open={dialogoCrearMesa} onOpenChange={setDialogoCrearMesa}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle className=" if">Nueva mesa</DialogTitle>
+            <DialogTitle>Nueva mesa</DialogTitle>
 
             <DialogDescription>
               Ingresa únicamente el número de la mesa.
@@ -1541,7 +1429,7 @@ export default function MesasPage() {
       <Dialog open={dialogoEditarMesa} onOpenChange={setDialogoEditarMesa}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle className=" if">Editar mesa</DialogTitle>
+            <DialogTitle>Editar mesa</DialogTitle>
 
             <DialogDescription>
               Cambia el número de la mesa. El nombre se actualizará
@@ -1625,7 +1513,7 @@ export default function MesasPage() {
           <DialogHeader className="border-b border-[#E4DED3] px-6 py-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <DialogTitle className=" if text-xl">
+                <DialogTitle className="text-xl">
                   Mesa {mesaDetalleCajero?.nombre.replace(/^mesa\s*/i, "")}
                 </DialogTitle>
 
@@ -1634,7 +1522,7 @@ export default function MesasPage() {
                 </DialogDescription>
               </div>
 
-              <div className="rounded-full bg-[#F1EEEA] px-3 py-1 text-[11px] font-medium text-[#6F695E]">
+              <div className="rounded-full bg-red-500 px-3 py-1 text-[11px] font-medium text-white">
                 Ocupada
               </div>
             </div>
@@ -1672,9 +1560,7 @@ export default function MesasPage() {
 
                   <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-[#E4DED3] pb-2 text-[10px] font-semibold uppercase tracking-wider text-[#8A8375]">
                     <span>Producto</span>
-
                     <span>Cant.</span>
-
                     <span>Subtotal</span>
                   </div>
 
@@ -1682,9 +1568,7 @@ export default function MesasPage() {
 
                   {items.map((item) => {
                     const plato = platos.find((p) => p.id === item.plato_id);
-
                     const nombre = plato?.nombre ?? "Producto";
-
                     const subtotal =
                       Number(item.precio_unitario) * Number(item.cantidad);
 
@@ -1726,17 +1610,17 @@ export default function MesasPage() {
 
           {/* TOTAL */}
 
-          <div className="border-t border-[#E4DED3] bg-[#FAF8F4] px-6 py-5">
+          <div className="border-t border-[#E4DED3] bg-zinc-50 px-6 py-5">
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-xs uppercase tracking-wider text-[#8A8375]">
+                <p className="font-extrabold text-xs uppercase tracking-wider text-black">
                   Total de la mesa
                 </p>
 
-                <p className="mt-1 text-sm text-[#6F695E]">Consumo actual</p>
+                <p className="mt-1 text-sm  font-medium text-[#6F695E]">Consumo actual</p>
               </div>
 
-              <p className="font-mono text-2xl font-semibold text-[#22201D]">
+              <p className="font-mono text-2xl font-extrabold text-black">
                 {money(totalMesaCajero)}
               </p>
             </div>
@@ -1744,11 +1628,12 @@ export default function MesasPage() {
 
           {/* FOOTER */}
 
-          <DialogFooter className="border-t border-[#E4DED3] bg-white px-6 py-4">
+          <DialogFooter className="border-t border-[#E4DED3] bg-white px-6 pb-8">
             <Button
               type="button"
               variant="outline"
               onClick={cerrarDetalleCajero}
+              className="bg-red-500 text-white hover:bg-red-900 hover:text-white cursor-pointer"
             >
               <X size={15} />
               Cerrar
@@ -1775,7 +1660,7 @@ export default function MesasPage() {
           ================================================== */}
 
           <DialogHeader className="border-b border-[#E4DED3] px-6 py-5">
-            <DialogTitle className=" if text-xl">
+            <DialogTitle className="text-xl">
               Mesa {mesaSeleccionada?.nombre.replace(/^mesa\s*/i, "")}
             </DialogTitle>
 
@@ -1912,7 +1797,9 @@ export default function MesasPage() {
 
                   <p className="mt-0.5 text-xs text-[#8A8375]">
                     {itemsSeleccionados.length}{" "}
-                    {itemsSeleccionados.length === 1 ? "producto" : "productos"}
+                    {itemsSeleccionados.length === 1
+                      ? "producto"
+                      : "productos"}
                   </p>
                 </div>
 

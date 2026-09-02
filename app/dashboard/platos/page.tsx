@@ -60,7 +60,7 @@ type FormularioPlato = {
   disponible: boolean;
 };
 
-const categorias = ["desayuno", "almuerzo", "bebida", "adicional"];
+const categorias = ["desayuno", "almuerzo", "bebida", "adicional", "combos"];
 
 const formularioInicial: FormularioPlato = {
   nombre: "",
@@ -92,10 +92,14 @@ const categoriaDotClass = (categoria: string) => {
       return "bg-blue-500";
 
     case "bebida":
-      return "bg-teal-500";
+      return "bg-green-500";
 
     case "adicional":
       return "bg-violet-500";
+
+    case "combos":
+      return "bg-red-500";
+
 
     default:
       return "bg-[#B6B1A2]";
