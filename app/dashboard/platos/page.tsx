@@ -3,15 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ChevronLeft,
-  ChevronRight,
+  Plus,
+  Search,
   MoreHorizontal,
   Pencil,
-  Plus,
-  Power,
-  Search,
   Trash2,
+  Power,
   Utensils,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
@@ -60,13 +60,7 @@ type FormularioPlato = {
   disponible: boolean;
 };
 
-const categorias = [
-  "desayuno",
-  "almuerzo",
-  "bebida",
-  "adicional",
-  "combos",
-];
+const categorias = ["desayuno", "almuerzo", "bebida", "adicional", "combos"];
 
 const formularioInicial: FormularioPlato = {
   nombre: "",
@@ -85,9 +79,7 @@ const money = (valor: number) =>
   }).format(Math.round(Number(valor) || 0));
 
 const categoriaLabel = (categoria: string) =>
-  categoria
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letra) => letra.toUpperCase());
+  categoria.replace(/_/g, " ").replace(/\b\w/g, (letra) => letra.toUpperCase());
 
 const categoriaDotClass = (categoria: string) => {
   switch (categoria) {
@@ -184,13 +176,10 @@ export default function PlatosPage() {
     const texto = busqueda.toLowerCase().trim();
 
     return platos.filter((plato) => {
-      const coincideBusqueda = plato.nombre
-        .toLowerCase()
-        .includes(texto);
+      const coincideBusqueda = plato.nombre.toLowerCase().includes(texto);
 
       const coincideCategoria =
-        filtroCategoria === "todas" ||
-        plato.categoria === filtroCategoria;
+        filtroCategoria === "todas" || plato.categoria === filtroCategoria;
 
       return coincideBusqueda && coincideCategoria;
     });
@@ -206,10 +195,7 @@ export default function PlatosPage() {
   const platosPagina = useMemo(() => {
     const inicio = (paginaActual - 1) * PLATOS_POR_PAGINA;
 
-    return platosFiltrados.slice(
-      inicio,
-      inicio + PLATOS_POR_PAGINA,
-    );
+    return platosFiltrados.slice(inicio, inicio + PLATOS_POR_PAGINA);
   }, [platosFiltrados, paginaActual]);
 
   const rangoInicio =
@@ -258,11 +244,7 @@ export default function PlatosPage() {
 
     const precio = Number(formulario.precio);
 
-    if (
-      formulario.precio.trim() === "" ||
-      Number.isNaN(precio) ||
-      precio < 0
-    ) {
+    if (formulario.precio.trim() === "" || Number.isNaN(precio) || precio < 0) {
       setError("El precio no es válido.");
       return;
     }
@@ -396,328 +378,285 @@ export default function PlatosPage() {
       setPlatos((actuales) =>
         actuales.filter((actual) => actual.id !== plato.id),
       );
+
+      setDialogoAbierto(false);
+      setPlatoEditando(null);
     } catch {
       setError("No se pudo eliminar el plato.");
     }
   };
 
+  const guardarDeshabilitado =
+    guardando || !formulario.nombre.trim() || !formulario.categoria;
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
+        <div className="text-sm text-[#8A8577]">Cargando platos…</div>
+      </main>
+    );
+  }
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-col gap-4 border-b border-[#E5E1D8] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F1EEE7]">
-              <Utensils className="h-5 w-5 text-[#5F5A4F]" />
-            </div>
+    <main className="min-h-screen bg-[#F7F6F3]">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-[#211F1B] sm:text-[28px]">
+              Platos
+            </h1>
 
-            <div>
-              <h1 className="text-xl font-semibold text-[#292722]">
-                Platos
-              </h1>
-
-              <p className="text-sm text-[#8A857A]">
-                Gestiona los platos y productos de tu restaurante
-              </p>
-            </div>
+            <p className="mt-1 text-sm text-[#8A8577]">
+              Administra el menú y la disponibilidad de tus platos.
+            </p>
           </div>
+
+          <Button
+            type="button"
+            onClick={abrirCrear}
+            className="w-fit cursor-pointer gap-1.5 rounded-full bg-black px-4 text-white shadow-none hover:bg-[#211F1B]/90"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+            Nuevo plato
+          </Button>
         </div>
 
-        <Button
-          type="button"
-          onClick={abrirCrear}
-          className="gap-2 rounded-xl bg-[#292722] px-4 text-white hover:bg-[#403C35]"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo plato
-        </Button>
-      </div>
+        {error && (
+          <div className="flex items-center justify-between rounded-[10px] bg-[#FBEAE8] px-4 py-3 text-sm text-[#C6433C]">
+            <span>{error}</span>
 
-      <div className="flex min-h-0 flex-1 flex-col px-6 py-5">
-        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative w-full lg:max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9A958A]" />
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="ml-3 shrink-0 text-xs font-medium underline underline-offset-2"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
 
-            <Input
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 rounded-[10px] border border-[#E7E4DC] bg-white px-3 py-2 sm:w-72">
+            <Search size={16} className="shrink-0 text-[#8A8577]" />
+
+            <input
               value={busqueda}
               onChange={(e) => {
                 setBusqueda(e.target.value);
                 setPagina(1);
               }}
-              placeholder="Buscar plato..."
-              className="h-10 rounded-xl border-[#DDD8CE] bg-white pl-9 text-sm focus-visible:ring-[#B6B1A2]"
+              placeholder="Buscar plato"
+              className="w-full bg-transparent text-sm text-[#211F1B] outline-none placeholder:text-[#B6B1A2]"
             />
           </div>
 
-          <Select
-            value={filtroCategoria}
-            onValueChange={(value) => {
-              if (value === null) return;
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] sm:pb-0 [&::-webkit-scrollbar]:hidden">
+            {["todas", ...categorias].map((categoria) => {
+              const activo = filtroCategoria === categoria;
 
-              setFiltroCategoria(value);
-              setPagina(1);
-            }}
-          >
-            <SelectTrigger className="h-10 w-full rounded-xl border-[#DDD8CE] bg-white lg:w-48">
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value="todas">
-                Todas las categorías
-              </SelectItem>
-
-              {categorias.map((categoria) => (
-                <SelectItem key={categoria} value={categoria}>
-                  {categoriaLabel(categoria)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              return (
+                <button
+                  key={categoria}
+                  type="button"
+                  onClick={() => {
+                    setFiltroCategoria(categoria);
+                    setPagina(1);
+                  }}
+                  className={`
+                    shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5
+                    text-[13px] font-medium transition-colors
+                    ${
+                      activo
+                        ? "border-[#211F1B] bg-[#211F1B] text-white"
+                        : "border-[#E7E4DC] bg-transparent text-[#8A8577] hover:bg-[#EFEDE6]"
+                    }
+                  `}
+                >
+                  {categoria === "todas" ? "Todas" : categoriaLabel(categoria)}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {error && (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+        <div className="overflow-hidden rounded-[14px] border border-[#E7E4DC] bg-white">
+          <div className="hidden items-center gap-4 border-b border-[#E7E4DC] px-5 py-3 text-[13px] text-[#8A8577] sm:flex">
+            <span className="w-2 shrink-0" />
+
+            <span className="flex-1">Plato</span>
+
+            <span className="w-28 shrink-0">Categoría</span>
+
+            <span className="w-24 shrink-0 text-right">Precio</span>
+
+            <span className="w-16 shrink-0 text-center">Estado</span>
+
+            <span className="w-8 shrink-0" />
           </div>
-        )}
 
-        <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[#E5E1D8] bg-white">
-          {loading ? (
-            <div className="flex h-full min-h-[300px] items-center justify-center">
-              <div className="flex flex-col items-center gap-3">
-                <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#DDD8CE] border-t-[#292722]" />
+          {platosPagina.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
+              <Utensils size={26} className="text-[#B6B1A2]" />
 
-                <p className="text-sm text-[#8A857A]">
-                  Cargando platos...
-                </p>
-              </div>
-            </div>
-          ) : platosPagina.length === 0 ? (
-            <div className="flex h-full min-h-[300px] flex-col items-center justify-center px-6 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F1EEE7]">
-                <Utensils className="h-6 w-6 text-[#8A857A]" />
-              </div>
-
-              <h3 className="text-base font-semibold text-[#292722]">
+              <p className="text-sm font-medium text-[#211F1B]">
                 No hay platos
-              </h3>
-
-              <p className="mt-1 max-w-sm text-sm text-[#8A857A]">
-                {busqueda || filtroCategoria !== "todas"
-                  ? "No encontramos platos que coincidan con los filtros seleccionados."
-                  : "Todavía no has registrado ningún plato."}
               </p>
 
-              {!busqueda && filtroCategoria === "todas" && (
-                <Button
-                  type="button"
-                  onClick={abrirCrear}
-                  className="mt-5 gap-2 rounded-xl bg-[#292722] text-white hover:bg-[#403C35]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Crear primer plato
-                </Button>
-              )}
+              <p className="text-[13px] text-[#8A8577]">
+                {busqueda || filtroCategoria !== "todas"
+                  ? "No encontramos platos con esos filtros."
+                  : "Comienza agregando tu primer plato."}
+              </p>
             </div>
           ) : (
-            <div className="flex h-full min-h-0 flex-col">
-              <div className="min-h-0 flex-1 overflow-auto">
-                <table className="w-full min-w-[760px] border-collapse">
-                  <thead>
-                    <tr className="border-b border-[#E5E1D8] bg-[#FAF9F6]">
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8A857A]">
-                        Plato
-                      </th>
+            platosPagina.map((plato) => (
+              <div
+                key={plato.id}
+                className="flex items-center gap-3 border-b border-[#E7E4DC] px-4 py-3 last:border-0 hover:bg-black/[0.015] sm:gap-4 sm:px-5"
+              >
+                <span
+                  className={`
+                    hidden size-2 shrink-0 rounded-full sm:block
+                    ${categoriaDotClass(plato.categoria)}
+                  `}
+                />
 
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8A857A]">
-                        Categoría
-                      </th>
-
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8A857A]">
-                        Precio
-                      </th>
-
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8A857A]">
-                        Estado
-                      </th>
-
-                      <th className="w-16 px-5 py-3" />
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {platosPagina.map((plato) => (
-                      <tr
-                        key={plato.id}
-                        className="border-b border-[#F0EDE7] last:border-0 hover:bg-[#FCFBF9]"
-                      >
-                        <td className="px-5 py-4">
-                          <div className="font-medium text-[#292722]">
-                            {plato.nombre}
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`h-2 w-2 rounded-full ${categoriaDotClass(
-                                plato.categoria,
-                              )}`}
-                            />
-
-                            <span className="text-sm text-[#625E55]">
-                              {categoriaLabel(plato.categoria)}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <span className="text-sm font-medium text-[#292722]">
-                            {money(plato.precio)}
-                          </span>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void cambiarDisponibilidad(plato)
-                            }
-                            className="inline-flex items-center gap-2"
-                          >
-                            <span
-                              className={`h-2 w-2 rounded-full ${
-                                plato.disponible
-                                  ? "bg-green-500"
-                                  : "bg-[#B6B1A2]"
-                              }`}
-                            />
-
-                            <span
-                              className={`text-sm ${
-                                plato.disponible
-                                  ? "text-green-700"
-                                  : "text-[#8A857A]"
-                              }`}
-                            >
-                              {plato.disponible
-                                ? "Disponible"
-                                : "No disponible"}
-                            </span>
-                          </button>
-                        </td>
-
-                        <td className="px-5 py-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger
-                              render={
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 rounded-lg text-[#7C776D] hover:bg-[#F1EEE7] hover:text-[#292722]"
-                                />
-                              }
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </DropdownMenuTrigger>
-
-                            <DropdownMenuContent
-                              align="end"
-                              className="w-44 rounded-xl"
-                            >
-                              <DropdownMenuItem
-                                onClick={() => abrirEditar(plato)}
-                                className="gap-2 rounded-lg"
-                              >
-                                <Pencil className="h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  void cambiarDisponibilidad(plato)
-                                }
-                                className="gap-2 rounded-lg"
-                              >
-                                <Power className="h-4 w-4" />
-                                {plato.disponible
-                                  ? "Desactivar"
-                                  : "Activar"}
-                              </DropdownMenuItem>
-
-                              <DropdownMenuSeparator />
-
-                              <DropdownMenuItem
-                                variant="destructive"
-                                onClick={() =>
-                                  void eliminarPlato(plato)
-                                }
-                                className="gap-2 rounded-lg"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Eliminar
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex flex-col gap-3 border-t border-[#E5E1D8] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-[#8A857A]">
-                  Mostrando{" "}
-                  <span className="font-medium text-[#625E55]">
-                    {rangoInicio}
-                  </span>{" "}
-                  a{" "}
-                  <span className="font-medium text-[#625E55]">
-                    {rangoFin}
-                  </span>{" "}
-                  de{" "}
-                  <span className="font-medium text-[#625E55]">
-                    {platosFiltrados.length}
-                  </span>{" "}
-                  platos
-                </p>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      setPagina((actual) => Math.max(1, actual - 1))
-                    }
-                    disabled={paginaActual <= 1}
-                    className="h-8 w-8 rounded-lg border-[#DDD8CE]"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-
-                  <span className="min-w-20 text-center text-sm text-[#625E55]">
-                    Página {paginaActual} de {totalPaginas}
+                <button
+                  type="button"
+                  onClick={() => abrirEditar(plato)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <span className="block truncate text-[15px] font-medium text-[#211F1B]">
+                    {plato.nombre}
                   </span>
 
-                  <Button
+                  <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-[#8A8577] sm:hidden">
+                    <span>{categoriaLabel(plato.categoria)}</span>
+
+                    <span>·</span>
+
+                    <span className="tabular-nums">{money(plato.precio)}</span>
+                  </span>
+                </button>
+
+                <span className="hidden w-28 shrink-0 truncate text-sm text-[#8A8577] sm:block">
+                  {categoriaLabel(plato.categoria)}
+                </span>
+
+                <span className="hidden w-24 shrink-0 text-right text-sm tabular-nums text-[#8A8577] sm:block">
+                  {money(plato.precio)}
+                </span>
+
+                <div className="flex w-16 shrink-0 justify-center">
+                  <button
                     type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      setPagina((actual) =>
-                        Math.min(totalPaginas, actual + 1),
-                      )
+                    onClick={() => void cambiarDisponibilidad(plato)}
+                    aria-pressed={plato.disponible}
+                    aria-label={
+                      plato.disponible
+                        ? "Marcar no disponible"
+                        : "Marcar disponible"
                     }
-                    disabled={paginaActual >= totalPaginas}
-                    className="h-8 w-8 rounded-lg border-[#DDD8CE]"
+                    className={`
+                      relative h-6 w-11 shrink-0 rounded-full
+                      transition-colors
+                      ${plato.disponible ? "bg-[#2FA36B]" : "bg-[#D8D4C8]"}
+                    `}
                   >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                    <span
+                      className={`
+                        absolute top-1 size-4 rounded-full bg-white
+                        shadow transition-all
+                        ${plato.disponible ? "left-[22px]" : "left-1"}
+                      `}
+                    />
+                  </button>
+                </div>
+
+                <div className="w-8 shrink-0 text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      aria-label={`Acciones para ${plato.nombre}`}
+                      render={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="inline-flex size-8 items-center justify-center rounded-full text-[#8A8577] transition hover:bg-black/[0.04] focus:outline-none"
+                        />
+                      }
+                    >
+                      <MoreHorizontal size={17} />
+                    </DropdownMenuTrigger>
+
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-44 rounded-[12px]"
+                    >
+                      <DropdownMenuItem onClick={() => abrirEditar(plato)}>
+                        <Pencil size={15} />
+                        Editar
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        onClick={() => void cambiarDisponibilidad(plato)}
+                      >
+                        <Power size={15} />
+
+                        {plato.disponible ? "Desactivar" : "Activar"}
+                      </DropdownMenuItem>
+
+                      <DropdownMenuSeparator />
+
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => void eliminarPlato(plato)}
+                      >
+                        <Trash2 size={15} />
+                        Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
+            ))
+          )}
+        </div>
+
+        <div className="flex flex-col items-center justify-between gap-3 px-1 sm:flex-row">
+          <p className="text-[13px] text-[#8A8577]">
+            {platosFiltrados.length === 0
+              ? "Sin resultados"
+              : `Mostrando ${rangoInicio}–${rangoFin} de ${platosFiltrados.length} platos`}
+          </p>
+
+          {totalPaginas > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPagina((actual) => Math.max(1, actual - 1))}
+                disabled={paginaActual === 1}
+                className="inline-flex size-8 items-center justify-center rounded-full border border-[#E7E4DC] text-[#211F1B] transition hover:bg-[#EFEDE6] disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Página anterior"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <span className="px-1 text-[13px] text-[#8A8577]">
+                Página {paginaActual} de {totalPaginas}
+              </span>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setPagina((actual) => Math.min(totalPaginas, actual + 1))
+                }
+                disabled={paginaActual === totalPaginas}
+                className="inline-flex size-8 items-center justify-center rounded-full border border-[#E7E4DC] text-[#211F1B] transition hover:bg-[#EFEDE6] disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Página siguiente"
+              >
+                <ChevronRight size={16} />
+              </button>
             </div>
           )}
         </div>
@@ -731,72 +670,70 @@ export default function PlatosPage() {
           }
         }}
       >
-        <DialogContent className="rounded-2xl sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-xl text-[#292722]">
+        <DialogContent className="gap-0 overflow-hidden rounded-[16px] bg-white p-0 sm:max-w-[460px]">
+          <DialogHeader className="px-6 pb-3 pt-6">
+            <DialogTitle className="text-[18px] font-semibold text-[#211F1B]">
               {platoEditando ? "Editar plato" : "Nuevo plato"}
             </DialogTitle>
 
-            <DialogDescription className="text-[#8A857A]">
+            <DialogDescription className="text-sm text-[#8A8577]">
               {platoEditando
                 ? "Modifica la información del plato."
-                : "Registra un nuevo plato para tu restaurante."}
+                : "Agrega un nuevo plato al menú."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label
-                htmlFor="nombre"
-                className="text-sm font-medium text-[#4A463F]"
-              >
-                Nombre
-              </label>
+          <div className="flex flex-col gap-4 px-6 py-2">
+            {error && (
+              <div className="rounded-[10px] bg-[#FBEAE8] px-3.5 py-2.5 text-[13px] text-[#C6433C]">
+                {error}
+              </div>
+            )}
 
-              <Input
-                id="nombre"
-                value={formulario.nombre}
-                onChange={(e) =>
-                  setFormulario((actual) => ({
-                    ...actual,
-                    nombre: e.target.value,
-                  }))
-                }
-                placeholder="Ej. Hamburguesa especial"
-                disabled={guardando}
-                className="rounded-xl border-[#DDD8CE]"
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
+            <div className="overflow-hidden rounded-[12px] border border-[#E7E4DC]">
+              <div className="flex items-center justify-between gap-3 border-b border-[#E7E4DC] px-4 py-3">
                 <label
-                  htmlFor="categoria"
-                  className="text-sm font-medium text-[#4A463F]"
+                  htmlFor="nombre"
+                  className="shrink-0 text-sm text-[#8A8577]"
                 >
-                  Categoría
+                  Nombre
                 </label>
+
+                <Input
+                  id="nombre"
+                  value={formulario.nombre}
+                  onChange={(e) =>
+                    setFormulario((actual) => ({
+                      ...actual,
+                      nombre: e.target.value,
+                    }))
+                  }
+                  placeholder="Ej. Hamburguesa clásica"
+                  disabled={guardando}
+                  className="h-auto border-none bg-transparent p-0 text-right text-[15px] text-[#211F1B] shadow-none focus-visible:ring-0"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 border-b border-[#E7E4DC] px-4 py-3">
+                <span className="shrink-0 text-sm text-[#8A8577]">
+                  Categoría
+                </span>
 
                 <Select
                   value={formulario.categoria}
-                  onValueChange={(value) => {
-                    if (value === null) return;
-
+                  onValueChange={(value) =>
                     setFormulario((actual) => ({
                       ...actual,
-                      categoria: value,
-                    }));
-                  }}
+                      categoria: value ?? "",
+                    }))
+                  }
                   disabled={guardando}
                 >
-                  <SelectTrigger
-                    id="categoria"
-                    className="w-full rounded-xl border-[#DDD8CE]"
-                  >
+                  <SelectTrigger className="h-auto w-auto border-none bg-transparent p-0 text-[15px] shadow-none focus:ring-0">
                     <SelectValue placeholder="Selecciona" />
                   </SelectTrigger>
 
-                  <SelectContent>
+                  <SelectContent align="end">
                     {categorias.map((categoria) => (
                       <SelectItem key={categoria} value={categoria}>
                         {categoriaLabel(categoria)}
@@ -806,10 +743,10 @@ export default function PlatosPage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3 border-b border-[#E7E4DC] px-4 py-3">
                 <label
                   htmlFor="precio"
-                  className="text-sm font-medium text-[#4A463F]"
+                  className="shrink-0 text-sm text-[#8A8577]"
                 >
                   Precio
                 </label>
@@ -818,6 +755,7 @@ export default function PlatosPage() {
                   id="precio"
                   type="number"
                   min="0"
+                  inputMode="numeric"
                   value={formulario.precio}
                   onChange={(e) =>
                     setFormulario((actual) => ({
@@ -825,59 +763,51 @@ export default function PlatosPage() {
                       precio: e.target.value,
                     }))
                   }
-                  placeholder="0"
+                  placeholder="25000"
                   disabled={guardando}
-                  className="rounded-xl border-[#DDD8CE]"
+                  className="h-auto border-none bg-transparent p-0 text-right text-[15px] tabular-nums text-[#211F1B] shadow-none focus-visible:ring-0"
                 />
               </div>
-            </div>
 
-            <div className="flex items-center justify-between rounded-xl border border-[#E5E1D8] px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-[#292722]">
-                  Disponible
-                </p>
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="text-sm text-[#8A8577]">Disponible</span>
 
-                <p className="text-xs text-[#8A857A]">
-                  Define si el plato puede ser vendido.
-                </p>
+                <button
+                  type="button"
+                  aria-label="Cambiar disponibilidad"
+                  aria-pressed={formulario.disponible}
+                  disabled={guardando}
+                  onClick={() =>
+                    setFormulario((actual) => ({
+                      ...actual,
+                      disponible: !actual.disponible,
+                    }))
+                  }
+                  className={`
+                    relative h-6 w-11 shrink-0 rounded-full
+                    transition-colors
+                    ${formulario.disponible ? "bg-[#2FA36B]" : "bg-[#D8D4C8]"}
+                  `}
+                >
+                  <span
+                    className={`
+                      absolute top-1 size-4 rounded-full bg-white
+                      shadow transition-all
+                      ${formulario.disponible ? "left-[22px]" : "left-1"}
+                    `}
+                  />
+                </button>
               </div>
-
-              <button
-                type="button"
-                role="switch"
-                aria-checked={formulario.disponible}
-                disabled={guardando}
-                onClick={() =>
-                  setFormulario((actual) => ({
-                    ...actual,
-                    disponible: !actual.disponible,
-                  }))
-                }
-                className={`relative h-6 w-11 rounded-full transition ${
-                  formulario.disponible
-                    ? "bg-[#292722]"
-                    : "bg-[#D3CFC6]"
-                }`}
-              >
-                <span
-                  className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
-                    formulario.disponible
-                      ? "left-6"
-                      : "left-1"
-                  }`}
-                />
-              </button>
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="flex items-center gap-2 px-6 pb-6 pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => setDialogoAbierto(false)}
               disabled={guardando}
-              className="rounded-xl border-[#DDD8CE]"
+              className="rounded-full border-[#E7E4DC] text-[#211F1B] shadow-none hover:bg-[#EFEDE6]"
             >
               Cancelar
             </Button>
@@ -885,8 +815,8 @@ export default function PlatosPage() {
             <Button
               type="button"
               onClick={() => void guardarPlato()}
-              disabled={guardando}
-              className="rounded-xl bg-[#292722] text-white hover:bg-[#403C35]"
+              disabled={guardarDeshabilitado}
+              className="rounded-full bg-[#211F1B] text-white shadow-none hover:bg-[#211F1B]/90"
             >
               {guardando
                 ? "Guardando..."
@@ -897,6 +827,6 @@ export default function PlatosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   );
 }

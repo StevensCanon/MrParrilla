@@ -36,9 +36,13 @@ type FormularioProducto = {
 const PRODUCTOS_POR_PAGINA = 15;
 
 const CATEGORIAS = [
-    { value: "Proteína", label: "Proteína" },
     { value: "Verdura", label: "Verdura" },
     { value: "Grano", label: "Grano" },
+    {value: "Aseo", label:"Aseo"},
+    {value: "Icopores", label:"Icopores"},
+    {value: "Carnes", label:"Carnes"},
+    {value: "Salsamentaria", label:"Salsamentaria"},
+    {value: "Frutas", label:"Frutas"},
   ];
 
 
@@ -354,7 +358,7 @@ export default function InventarioPage() {
           <button
             type="button"
             onClick={abrirCrear}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#B91C1C] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#991B1B] active:scale-[0.98]"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-500 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
           >
             <Plus className="h-4 w-4" />
             Nuevo producto

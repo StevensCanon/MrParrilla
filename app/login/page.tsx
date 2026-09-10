@@ -49,10 +49,10 @@ const TECLAS = [
 ];
 
 const ROL_LABEL: Record<string, string> = {
-  admin: "Administración",
+  admin: "Administrador",
   cajero: "Cajero",
   mesero: "Mesero",
-  cocina: "Cocina",
+  cocina: "Cocinero",
 };
 
 function iniciales(nombre: string) {
@@ -217,9 +217,9 @@ export default function LoginPage() {
                     key={usuario.id}
                     type="button"
                     onClick={() => setSeleccionado(usuario)}
-                    className="group flex w-full items-center gap-3 rounded-xl border border-[#E8E5DE] bg-white p-3 text-left transition-all duration-200 hover:border-[#22201D] hover:bg-[#FAF9F7] hover:shadow-sm active:scale-[0.99]"
+                    className="group flex w-full items-center gap-3 rounded-xl border border-[#E8E5DE] bg-white p-3 text-left transition-all duration-200 hover:border-black hover:bg-[#FAF9F7] hover:shadow-sm active:scale-[0.99] cursor-pointer"
                   >
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#22201D] text-sm font-semibold text-white">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-black text-sm font-semibold text-white">
                       {iniciales(usuario.nombre)}
                     </div>
 

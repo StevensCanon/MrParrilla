@@ -7,6 +7,8 @@ import { IoChatboxEllipses } from "react-icons/io5";
 import { MdTableBar } from "react-icons/md";
 import { FaKitchenSet } from "react-icons/fa6";
 import Image from "next/image";
+import { GiFireBowl } from "react-icons/gi";
+import { useState, useEffect } from "react";
 
 import { Users, Wallet, LogOut, Settings } from "lucide-react";
 
@@ -28,6 +30,8 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+type RolUsuario = "admin" | "mesero" | "cajero" | "cocina";
+
 const menuPrincipal = [
   {
     title: "Dashboard",
@@ -39,15 +43,11 @@ const menuPrincipal = [
     href: "/dashboard/platos",
     icon: GiForkKnifeSpoon,
   },
+
   {
-    title: "Inventario",
-    href: "/dashboard/inventario",
-    icon: IoIosListBox,
-  },
-  {
-    title: "Pedidos",
-    href: "/dashboard/pedidos",
-    icon: IoChatboxEllipses,
+    title: "Menus",
+    href: "/dashboard/menus",
+    icon: GiFireBowl,
   },
   {
     title: "Mesas",
@@ -55,9 +55,19 @@ const menuPrincipal = [
     icon: MdTableBar,
   },
   {
+    title: "Pedidos",
+    href: "/dashboard/pedidos",
+    icon: IoChatboxEllipses,
+  },
+  {
     title: "Cocina",
     href: "/dashboard/cocina",
     icon: FaKitchenSet,
+  },
+  {
+    title: "Inventario",
+    href: "/dashboard/inventario",
+    icon: IoIosListBox,
   },
 ];
 
@@ -81,6 +91,36 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [rolUsuario, setRolUsuario] = useState<RolUsuario | null>(null);
+
+  useEffect(() => {
+    const cargarRol = async () => {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        router.push("/login");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("usuarios")
+        .select("rol")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Error obteniendo rol:", error);
+        return;
+      }
+
+      setRolUsuario(data.rol as RolUsuario);
+    };
+
+    void cargarRol();
+  }, [router]);
 
   const cerrarSesion = async () => {
     const { error } = await supabase.auth.signOut();
@@ -91,6 +131,13 @@ export default function DashboardLayout({
     }
 
     router.push("/login");
+  };
+
+  const nombresRoles: Record<RolUsuario, string> = {
+    admin: "Administrador",
+    mesero: "Mesero",
+    cajero: "Cajero",
+    cocina: "Cocinera",
   };
 
   return (
@@ -109,13 +156,19 @@ export default function DashboardLayout({
               />
             </div>
 
-            <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-bold text-black">
-                MrParrilla
-              </span>
-
-              <span className="text-[10px] uppercase tracking-wider text-[#8A8375]"></span>
+            <div className="grid grid-cols-1 grid-rows-2">
+              <div>
+                <span className="text-md font-black text-black ">
+                  MrParrilla
+                </span>
+              </div>
+              <div className="row-start-2">
+                <span className="text-xs font-medium  text-black bg-orange-100 rounded-md  px-2 py-1  ">
+                  {rolUsuario && nombresRoles[rolUsuario]}
+                </span>
+              </div>
             </div>
+            <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden "></div>
           </div>
         </SidebarHeader>
 
@@ -191,10 +244,7 @@ export default function DashboardLayout({
             </SidebarMenuItem>
 
             <SidebarMenuItem>
-              <SidebarMenuButton
-                tooltip="Cerrar sesión"
-                onClick={cerrarSesion}
-              >
+              <SidebarMenuButton tooltip="Cerrar sesión" onClick={cerrarSesion}>
                 <LogOut size={17} />
                 <span>Cerrar sesión</span>
               </SidebarMenuButton>
@@ -226,4 +276,3 @@ export default function DashboardLayout({
     </SidebarProvider>
   );
 }
-
