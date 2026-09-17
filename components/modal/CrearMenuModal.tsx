@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -84,7 +83,7 @@ const PLATOS_PERMITIDOS = new Set([
   'Almuerzo Especial',
   'Almuerzo Ejecutivo',
   'Desayuno Completo',
-  'Desayuno Moñona'
+  'Desayuno Moñona',
 ]);
 
 function obtenerFechaColombia(): string {
@@ -105,12 +104,15 @@ function obtenerFechaColombia(): string {
 }
 
 function formatearFecha(fecha: string): string {
-  return new Date(`${fecha}T12:00:00`).toLocaleDateString('es-CO', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
+  return new Date(`${fecha}T12:00:00`).toLocaleDateString(
+    'es-CO',
+    {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }
+  );
 }
 
 export default function CrearMenuModal({
@@ -133,7 +135,9 @@ export default function CrearMenuModal({
     ConfiguracionPlato[]
   >([]);
 
-  const [platoActivo, setPlatoActivo] = useState<string | null>(null);
+  const [platoActivo, setPlatoActivo] = useState<string | null>(
+    null
+  );
 
   const [cargandoPlatos, setCargandoPlatos] = useState(false);
   const [cargandoMenu, setCargandoMenu] = useState(false);
@@ -181,47 +185,7 @@ export default function CrearMenuModal({
 
   /*
    * ---------------------------------------------------------
-   * CARGAR PLATOS
-   * ---------------------------------------------------------
-   */
-
-  const cargarPlatos = async () => {
-    try {
-      setCargandoPlatos(true);
-      setError(null);
-
-      const { data, error: platosError } = await supabase
-        .from('platos')
-        .select('id, nombre, categoria')
-        .eq('disponible', true)
-        .in('nombre', Array.from(PLATOS_PERMITIDOS))
-        .order('nombre');
-
-      if (platosError) {
-        throw platosError;
-      }
-
-      const platosFiltrados = (data ?? []).filter((plato) =>
-        PLATOS_PERMITIDOS.has(plato.nombre)
-      );
-
-      setPlatos(platosFiltrados);
-    } catch (err) {
-      console.error('Error cargando platos:', err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'No fue posible cargar los platos.'
-      );
-    } finally {
-      setCargandoPlatos(false);
-    }
-  };
-
-  /*
-   * ---------------------------------------------------------
-   * CARGAR GRUPOS Y OPCIONES DE UN PLATO
+   * OBTENER GRUPOS Y OPCIONES DE UN PLATO
    * ---------------------------------------------------------
    */
 
@@ -229,7 +193,7 @@ export default function CrearMenuModal({
     platoId: string
   ): Promise<Grupo[]> => {
     const { data, error: gruposError } = await supabase
-      .from('grupos_opcion')
+      .from('menu_categorias_platos')
       .select(`
         id,
         nombre,
@@ -243,7 +207,9 @@ export default function CrearMenuModal({
         )
       `)
       .eq('plato_id', platoId)
-      .order('orden', { ascending: true });
+      .order('orden', {
+        ascending: true,
+      });
 
     if (gruposError) {
       throw gruposError;
@@ -254,16 +220,18 @@ export default function CrearMenuModal({
       nombre: grupo.nombre,
       obligatorio: Boolean(grupo.obligatorio),
       orden: Number(grupo.orden ?? 0),
-      opciones: (grupo.opciones_grupo ?? []).map((opcion) => ({
-        id: opcion.id,
-        nombre: opcion.nombre,
-        recargo: Number(opcion.recargo ?? 0),
-        stock_porciones:
-          opcion.stock_porciones !== null &&
-          opcion.stock_porciones !== undefined
-            ? Number(opcion.stock_porciones)
-            : null,
-      })),
+      opciones: (grupo.opciones_grupo ?? []).map(
+        (opcion) => ({
+          id: opcion.id,
+          nombre: opcion.nombre,
+          recargo: Number(opcion.recargo ?? 0),
+          stock_porciones:
+            opcion.stock_porciones !== null &&
+            opcion.stock_porciones !== undefined
+              ? Number(opcion.stock_porciones)
+              : null,
+        })
+      ),
     }));
   };
 
@@ -281,9 +249,14 @@ export default function CrearMenuModal({
       setCargandoGrupos(true);
       setError(null);
 
-      const grupos = await obtenerGruposDelPlato(plato.id);
+      const grupos = await obtenerGruposDelPlato(
+        plato.id
+      );
 
-      const opcionesSeleccionadas: Record<string, string[]> = {
+      const opcionesSeleccionadas: Record<
+        string,
+        string[]
+      > = {
         ...(seleccionInicial ?? {}),
       };
 
@@ -317,8 +290,6 @@ export default function CrearMenuModal({
 
       setPlatoActivo(plato.id);
     } catch (err) {
-      console.error('Error cargando grupos:', err);
-
       setError(
         err instanceof Error
           ? err.message
@@ -332,15 +303,25 @@ export default function CrearMenuModal({
   /*
    * ---------------------------------------------------------
    * CARGAR MENÚ EXISTENTE
+   *
+   * IMPORTANTE:
+   * Recibimos los platos directamente para no depender
+   * del estado "platos" recién actualizado.
    * ---------------------------------------------------------
    */
 
-  const cargarMenuExistente = async (id: string) => {
+  const cargarMenuExistente = async (
+    id: string,
+    platosDisponibles: Plato[]
+  ) => {
     try {
       setCargandoMenu(true);
       setError(null);
 
-      const { data: menu, error: menuError } = await supabase
+      const {
+        data: menu,
+        error: menuError,
+      } = await supabase
         .from('menus')
         .select('id, fecha, estado')
         .eq('id', id)
@@ -351,7 +332,9 @@ export default function CrearMenuModal({
       }
 
       if (!menu) {
-        throw new Error('No fue posible encontrar el menú.');
+        throw new Error(
+          'No fue posible encontrar el menú.'
+        );
       }
 
       setFechaMenu(menu.fecha);
@@ -369,17 +352,21 @@ export default function CrearMenuModal({
       }
 
       const menuPlatos =
-        (menuPlatosData ?? []) as MenuPlatoExistente[];
+        (menuPlatosData ??
+          []) as MenuPlatoExistente[];
 
-      const menuPlatosActivos = menuPlatos.filter(
-        (item) => item.activo
-      );
+      const menuPlatosActivos =
+        menuPlatos.filter(
+          (item) => item.activo
+        );
 
-      const configuracionesCargadas: ConfiguracionPlato[] = [];
+      const configuracionesCargadas: ConfiguracionPlato[] =
+        [];
 
       for (const menuPlato of menuPlatosActivos) {
-        const plato = platos.find(
-          (item) => item.id === menuPlato.plato_id
+        const plato = platosDisponibles.find(
+          (item) =>
+            item.id === menuPlato.plato_id
         );
 
         if (!plato) {
@@ -394,16 +381,23 @@ export default function CrearMenuModal({
           .select(
             'id, menu_plato_id, grupo_id, activo, orden'
           )
-          .eq('menu_plato_id', menuPlato.id);
+          .eq(
+            'menu_plato_id',
+            menuPlato.id
+          );
 
         if (gruposError) {
           throw gruposError;
         }
 
         const gruposExistentes =
-          (gruposData ?? []) as MenuGrupoExistente[];
+          (gruposData ??
+            []) as MenuGrupoExistente[];
 
-        const seleccionadas: Record<string, string[]> = {};
+        const seleccionadas: Record<
+          string,
+          string[]
+        > = {};
 
         for (const menuGrupo of gruposExistentes) {
           const {
@@ -422,22 +416,39 @@ export default function CrearMenuModal({
               porciones_consumidas,
               agotado
             `)
-            .eq('menu_grupo_id', menuGrupo.id);
+            .eq(
+              'menu_grupo_id',
+              menuGrupo.id
+            );
 
           if (opcionesError) {
             throw opcionesError;
           }
 
           const opciones =
-            (opcionesData ?? []) as MenuOpcionExistente[];
+            (opcionesData ??
+              []) as MenuOpcionExistente[];
 
-          seleccionadas[menuGrupo.grupo_id] = opciones
-            .filter((item) => item.activo)
-            .sort((a, b) => a.orden - b.orden)
-            .map((item) => item.opcion_id);
+          seleccionadas[
+            menuGrupo.grupo_id
+          ] = opciones
+            .filter(
+              (item) => item.activo
+            )
+            .sort(
+              (a, b) =>
+                a.orden - b.orden
+            )
+            .map(
+              (item) =>
+                item.opcion_id
+            );
         }
 
-        const grupos = await obtenerGruposDelPlato(plato.id);
+        const grupos =
+          await obtenerGruposDelPlato(
+            plato.id
+          );
 
         for (const grupo of grupos) {
           if (!seleccionadas[grupo.id]) {
@@ -448,13 +459,19 @@ export default function CrearMenuModal({
         configuracionesCargadas.push({
           plato,
           grupos,
-          opcionesSeleccionadas: seleccionadas,
+          opcionesSeleccionadas:
+            seleccionadas,
         });
       }
 
-      setConfiguraciones(configuracionesCargadas);
+      setConfiguraciones(
+        configuracionesCargadas
+      );
 
-      if (configuracionesCargadas.length > 0) {
+      if (
+        configuracionesCargadas.length >
+        0
+      ) {
         setPlatoActivo(
           configuracionesCargadas[0].plato.id
         );
@@ -462,11 +479,6 @@ export default function CrearMenuModal({
         setPlatoActivo(null);
       }
     } catch (err) {
-      console.error(
-        'Error cargando menú existente:',
-        err
-      );
-
       setError(
         err instanceof Error
           ? err.message
@@ -480,32 +492,105 @@ export default function CrearMenuModal({
   /*
    * ---------------------------------------------------------
    * INICIALIZAR MODAL
+   *
+   * Antes había dos useEffect:
+   *
+   * 1. open -> cargarPlatos()
+   * 2. platos -> cargarMenuExistente()
+   *
+   * Eso provocaba el warning de React.
+   *
+   * Ahora hacemos una sola operación de inicialización.
    * ---------------------------------------------------------
    */
 
   useEffect(() => {
     if (!open) {
-      limpiarEstado();
       return;
     }
 
-    void cargarPlatos();
-  }, [open]);
+    let cancelado = false;
 
-  /*
-   * ---------------------------------------------------------
-   * CUANDO LOS PLATOS YA ESTÁN CARGADOS,
-   * CARGAR MENÚ EXISTENTE
-   * ---------------------------------------------------------
-   */
+    const inicializarModal = async () => {
+      try {
+        setCargandoPlatos(true);
+        setCargandoMenu(Boolean(menuId));
+        setError(null);
 
-  useEffect(() => {
-    if (!open || !menuId || platos.length === 0) {
-      return;
-    }
+        const {
+          data,
+          error: platosError,
+        } = await supabase
+          .from('platos')
+          .select(
+            'id, nombre, categoria'
+          )
+          .eq('disponible', true)
+          .in(
+            'nombre',
+            Array.from(
+              PLATOS_PERMITIDOS
+            )
+          )
+          .order('nombre');
 
-    void cargarMenuExistente(menuId);
-  }, [open, menuId, platos]);
+        if (platosError) {
+          throw platosError;
+        }
+
+        if (cancelado) {
+          return;
+        }
+
+        const platosCargados =
+          (data ?? []).filter(
+            (plato) =>
+              PLATOS_PERMITIDOS.has(
+                plato.nombre
+              )
+          );
+
+        setPlatos(platosCargados);
+        setCargandoPlatos(false);
+
+        if (
+          !menuId ||
+          platosCargados.length === 0
+        ) {
+          setCargandoMenu(false);
+          return;
+        }
+
+        await cargarMenuExistente(
+          menuId,
+          platosCargados
+        );
+
+        if (!cancelado) {
+          setCargandoMenu(false);
+        }
+      } catch (err) {
+        if (cancelado) {
+          return;
+        }
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'No fue posible cargar los datos del menú.'
+        );
+
+        setCargandoPlatos(false);
+        setCargandoMenu(false);
+      }
+    };
+
+    void inicializarModal();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [open, menuId]);
 
   /*
    * ---------------------------------------------------------
@@ -513,20 +598,26 @@ export default function CrearMenuModal({
    * ---------------------------------------------------------
    */
 
-  const seleccionarPlato = async (plato: Plato) => {
+  const seleccionarPlato = async (
+    plato: Plato
+  ) => {
     setError(null);
     setNuevaOpcion(null);
 
-    const configurado = configuraciones.find(
-      (item) => item.plato.id === plato.id
-    );
+    const configurado =
+      configuraciones.find(
+        (item) =>
+          item.plato.id === plato.id
+      );
 
     if (configurado) {
       setPlatoActivo(plato.id);
       return;
     }
 
-    await cargarConfiguracionPlato(plato);
+    await cargarConfiguracionPlato(
+      plato
+    );
   };
 
   /*
@@ -535,10 +626,13 @@ export default function CrearMenuModal({
    * ---------------------------------------------------------
    */
 
-  const eliminarPlato = (platoId: string) => {
+  const eliminarPlato = (
+    platoId: string
+  ) => {
     setConfiguraciones((prev) =>
       prev.filter(
-        (item) => item.plato.id !== platoId
+        (item) =>
+          item.plato.id !== platoId
       )
     );
 
@@ -553,19 +647,6 @@ export default function CrearMenuModal({
    * ---------------------------------------------------------
    * SELECCIONAR / DESELECCIONAR OPCIÓN
    * ---------------------------------------------------------
-   *
-   * IMPORTANTE:
-   * Un grupo puede tener múltiples opciones seleccionadas.
-   *
-   * Ejemplo:
-   *
-   * Proteína:
-   * [✓] Pollo
-   * [✓] Carne
-   * [ ] Pescado
-   *
-   * Ya no se reemplaza la selección anterior.
-   * ---------------------------------------------------------
    */
 
   const seleccionarOpcion = (
@@ -575,25 +656,25 @@ export default function CrearMenuModal({
   ) => {
     setConfiguraciones((prev) =>
       prev.map((config) => {
-        if (config.plato.id !== platoId) {
+        if (
+          config.plato.id !== platoId
+        ) {
           return config;
         }
 
         const actuales =
-          config.opcionesSeleccionadas[grupo.id] ?? [];
+          config.opcionesSeleccionadas[
+            grupo.id
+          ] ?? [];
 
         const yaSeleccionada =
-          actuales.includes(opcionId);
+          actuales.includes(
+            opcionId
+          );
 
         let nuevasSeleccionadas: string[];
 
         if (yaSeleccionada) {
-          /*
-           * Si ya estaba seleccionada, la quitamos.
-           *
-           * Un grupo obligatorio puede tener varias
-           * opciones, pero no puede quedar vacío.
-           */
           if (
             grupo.obligatorio &&
             actuales.length === 1
@@ -601,14 +682,12 @@ export default function CrearMenuModal({
             return config;
           }
 
-          nuevasSeleccionadas = actuales.filter(
-            (id) => id !== opcionId
-          );
+          nuevasSeleccionadas =
+            actuales.filter(
+              (id) =>
+                id !== opcionId
+            );
         } else {
-          /*
-           * Agregamos la nueva opción sin quitar
-           * las opciones que ya estaban seleccionadas.
-           */
           nuevasSeleccionadas = [
             ...actuales,
             opcionId,
@@ -619,7 +698,8 @@ export default function CrearMenuModal({
           ...config,
           opcionesSeleccionadas: {
             ...config.opcionesSeleccionadas,
-            [grupo.id]: nuevasSeleccionadas,
+            [grupo.id]:
+              nuevasSeleccionadas,
           },
         };
       })
@@ -632,7 +712,9 @@ export default function CrearMenuModal({
    * ---------------------------------------------------------
    */
 
-  const abrirNuevaOpcion = (grupoId: string) => {
+  const abrirNuevaOpcion = (
+    grupoId: string
+  ) => {
     setError(null);
 
     setNuevaOpcion({
@@ -658,14 +740,20 @@ export default function CrearMenuModal({
    */
 
   const crearNuevaOpcion = async () => {
-    if (!nuevaOpcion || !platoActivo) {
+    if (
+      !nuevaOpcion ||
+      !platoActivo
+    ) {
       return;
     }
 
-    const nombre = nuevaOpcion.nombre.trim();
+    const nombre =
+      nuevaOpcion.nombre.trim();
 
     if (!nombre) {
-      setError('Debes ingresar el nombre de la opción.');
+      setError(
+        'Debes ingresar el nombre de la opción.'
+      );
       return;
     }
 
@@ -683,9 +771,14 @@ export default function CrearMenuModal({
       return;
     }
 
-    let stockPorciones: number | null = null;
+    let stockPorciones:
+      | number
+      | null = null;
 
-    if (nuevaOpcion.stock_porciones.trim() !== '') {
+    if (
+      nuevaOpcion.stock_porciones.trim() !==
+      ''
+    ) {
       const stock = Number(
         nuevaOpcion.stock_porciones
       );
@@ -720,7 +813,10 @@ export default function CrearMenuModal({
           'grupo_id',
           nuevaOpcion.grupoId
         )
-        .ilike('nombre', nombre)
+        .ilike(
+          'nombre',
+          nombre
+        )
         .maybeSingle();
 
       if (buscarError) {
@@ -739,10 +835,12 @@ export default function CrearMenuModal({
       } = await supabase
         .from('opciones_grupo')
         .insert({
-          grupo_id: nuevaOpcion.grupoId,
+          grupo_id:
+            nuevaOpcion.grupoId,
           nombre,
           recargo,
-          stock_porciones: stockPorciones,
+          stock_porciones:
+            stockPorciones,
         })
         .select(
           'id, nombre, recargo, stock_porciones'
@@ -761,75 +859,75 @@ export default function CrearMenuModal({
 
       const opcion: Opcion = {
         id: nuevaOpcionCreada.id,
-        nombre: nuevaOpcionCreada.nombre,
+        nombre:
+          nuevaOpcionCreada.nombre,
         recargo: Number(
-          nuevaOpcionCreada.recargo ?? 0
+          nuevaOpcionCreada.recargo ??
+            0
         ),
         stock_porciones:
-          nuevaOpcionCreada.stock_porciones !== null &&
-          nuevaOpcionCreada.stock_porciones !== undefined
+          nuevaOpcionCreada.stock_porciones !==
+            null &&
+          nuevaOpcionCreada.stock_porciones !==
+            undefined
             ? Number(
                 nuevaOpcionCreada.stock_porciones
               )
             : null,
       };
 
-      setConfiguraciones((prev) =>
-        prev.map((config) => {
-          if (config.plato.id !== platoActivo) {
-            return config;
-          }
+      setConfiguraciones(
+        (prev) =>
+          prev.map((config) => {
+            if (
+              config.plato.id !==
+              platoActivo
+            ) {
+              return config;
+            }
 
-          const opcionesActuales =
-            config.opcionesSeleccionadas[
-              nuevaOpcion.grupoId
-            ] ?? [];
+            const opcionesActuales =
+              config
+                .opcionesSeleccionadas[
+                nuevaOpcion.grupoId
+              ] ?? [];
 
-          return {
-            ...config,
+            return {
+              ...config,
 
-            grupos: config.grupos.map(
-              (grupo) => {
-                if (
-                  grupo.id !==
-                  nuevaOpcion.grupoId
-                ) {
-                  return grupo;
-                }
+              grupos:
+                config.grupos.map(
+                  (grupo) => {
+                    if (
+                      grupo.id !==
+                      nuevaOpcion.grupoId
+                    ) {
+                      return grupo;
+                    }
 
-                return {
-                  ...grupo,
-                  opciones: [
-                    ...grupo.opciones,
-                    opcion,
-                  ],
-                };
-              }
-            ),
+                    return {
+                      ...grupo,
+                      opciones: [
+                        ...grupo.opciones,
+                        opcion,
+                      ],
+                    };
+                  }
+                ),
 
-            /*
-             * IMPORTANTE:
-             * La nueva opción se agrega a las que
-             * ya estaban seleccionadas.
-             */
-            opcionesSeleccionadas: {
-              ...config.opcionesSeleccionadas,
-              [nuevaOpcion.grupoId]: [
-                ...opcionesActuales,
-                opcion.id,
-              ],
-            },
-          };
-        })
+              opcionesSeleccionadas: {
+                ...config.opcionesSeleccionadas,
+                [nuevaOpcion.grupoId]: [
+                  ...opcionesActuales,
+                  opcion.id,
+                ],
+              },
+            };
+          })
       );
 
       setNuevaOpcion(null);
     } catch (err) {
-      console.error(
-        'Error creando opción:',
-        err
-      );
-
       setError(
         err instanceof Error
           ? err.message
@@ -846,30 +944,37 @@ export default function CrearMenuModal({
    * ---------------------------------------------------------
    */
 
-  const validarConfiguracion = (): string | null => {
-    if (configuraciones.length === 0) {
-      return 'Debes seleccionar al menos un plato.';
-    }
+  const validarConfiguracion =
+    (): string | null => {
+      if (
+        configuraciones.length ===
+        0
+      ) {
+        return 'Debes seleccionar al menos un plato.';
+      }
 
-    for (const configuracion of configuraciones) {
-      for (const grupo of configuracion.grupos) {
-        const seleccionadas =
-          configuracion.opcionesSeleccionadas[
-            grupo.id
-          ] ?? [];
+      for (const configuracion of configuraciones) {
+        for (const grupo of configuracion.grupos) {
+          const seleccionadas =
+            configuracion
+              .opcionesSeleccionadas[
+              grupo.id
+            ] ?? [];
 
-        if (
-          grupo.obligatorio &&
-          grupo.opciones.length > 0 &&
-          seleccionadas.length === 0
-        ) {
-          return `Debes seleccionar al menos una opción en "${grupo.nombre}" para ${configuracion.plato.nombre}.`;
+          if (
+            grupo.obligatorio &&
+            grupo.opciones.length >
+              0 &&
+            seleccionadas.length ===
+              0
+          ) {
+            return `Debes seleccionar al menos una opción en "${grupo.nombre}" para ${configuracion.plato.nombre}.`;
+          }
         }
       }
-    }
 
-    return null;
-  };
+      return null;
+    };
 
   /*
    * ---------------------------------------------------------
@@ -877,20 +982,25 @@ export default function CrearMenuModal({
    * ---------------------------------------------------------
    */
 
-  const desactivarOpcionesDelGrupo = async (
-    menuGrupoId: string
-  ) => {
-    const { error } = await supabase
-      .from('menu_opciones')
-      .update({
-        activo: false,
-      })
-      .eq('menu_grupo_id', menuGrupoId);
+  const desactivarOpcionesDelGrupo =
+    async (
+      menuGrupoId: string
+    ) => {
+      const { error } =
+        await supabase
+          .from('menu_opciones')
+          .update({
+            activo: false,
+          })
+          .eq(
+            'menu_grupo_id',
+            menuGrupoId
+          );
 
-    if (error) {
-      throw error;
-    }
-  };
+      if (error) {
+        throw error;
+      }
+    };
 
   /*
    * ---------------------------------------------------------
@@ -911,31 +1021,39 @@ export default function CrearMenuModal({
       .select(
         'id, menu_plato_id, grupo_id, activo, orden'
       )
-      .eq('menu_plato_id', menuPlatoId)
-      .eq('grupo_id', grupo.id)
+      .eq(
+        'menu_plato_id',
+        menuPlatoId
+      )
+      .eq(
+        'grupo_id',
+        grupo.id
+      )
       .maybeSingle();
 
     if (buscarGrupoError) {
       throw buscarGrupoError;
     }
 
-    /*
-     * Si el grupo no tiene ninguna opción seleccionada,
-     * lo dejamos inactivo.
-     */
-
-    if (seleccionadas.length === 0) {
+    if (
+      seleccionadas.length ===
+      0
+    ) {
       if (grupoExistente) {
         await desactivarOpcionesDelGrupo(
           grupoExistente.id
         );
 
-        const { error } = await supabase
-          .from('menu_grupos')
-          .update({
-            activo: false,
-          })
-          .eq('id', grupoExistente.id);
+        const { error } =
+          await supabase
+            .from('menu_grupos')
+            .update({
+              activo: false,
+            })
+            .eq(
+              'id',
+              grupoExistente.id
+            );
 
         if (error) {
           throw error;
@@ -948,15 +1066,20 @@ export default function CrearMenuModal({
     let menuGrupoId: string;
 
     if (grupoExistente) {
-      menuGrupoId = grupoExistente.id;
+      menuGrupoId =
+        grupoExistente.id;
 
-      const { error } = await supabase
-        .from('menu_grupos')
-        .update({
-          activo: true,
-          orden: grupo.orden,
-        })
-        .eq('id', menuGrupoId);
+      const { error } =
+        await supabase
+          .from('menu_grupos')
+          .update({
+            activo: true,
+            orden: grupo.orden,
+          })
+          .eq(
+            'id',
+            menuGrupoId
+          );
 
       if (error) {
         throw error;
@@ -968,7 +1091,8 @@ export default function CrearMenuModal({
       } = await supabase
         .from('menu_grupos')
         .insert({
-          menu_plato_id: menuPlatoId,
+          menu_plato_id:
+            menuPlatoId,
           grupo_id: grupo.id,
           activo: true,
           orden: grupo.orden,
@@ -986,7 +1110,8 @@ export default function CrearMenuModal({
         );
       }
 
-      menuGrupoId = nuevoGrupo.id;
+      menuGrupoId =
+        nuevoGrupo.id;
     }
 
     const {
@@ -1005,67 +1130,67 @@ export default function CrearMenuModal({
         porciones_consumidas,
         agotado
       `)
-      .eq('menu_grupo_id', menuGrupoId);
+      .eq(
+        'menu_grupo_id',
+        menuGrupoId
+      );
 
     if (opcionesError) {
       throw opcionesError;
     }
 
     const opcionesExistentes =
-      (opcionesExistentesData ?? []) as MenuOpcionExistente[];
-
-    /*
-     * Sincronizar todas las opciones seleccionadas.
-     *
-     * Ahora puede haber múltiples opciones activas
-     * dentro del mismo grupo.
-     */
+      (opcionesExistentesData ??
+        []) as MenuOpcionExistente[];
 
     for (
       let index = 0;
-      index < seleccionadas.length;
+      index <
+      seleccionadas.length;
       index += 1
     ) {
-      const opcionId = seleccionadas[index];
+      const opcionId =
+        seleccionadas[index];
 
-      const existente = opcionesExistentes.find(
-        (item) => item.opcion_id === opcionId
-      );
+      const existente =
+        opcionesExistentes.find(
+          (item) =>
+            item.opcion_id ===
+            opcionId
+        );
 
       if (existente) {
-        /*
-         * No tocamos las cantidades operativas.
-         */
-
-        const { error } = await supabase
-          .from('menu_opciones')
-          .update({
-            activo: true,
-            orden: index,
-          })
-          .eq('id', existente.id);
+        const { error } =
+          await supabase
+            .from('menu_opciones')
+            .update({
+              activo: true,
+              orden: index,
+            })
+            .eq(
+              'id',
+              existente.id
+            );
 
         if (error) {
           throw error;
         }
       } else {
-        /*
-         * Solo las opciones nuevas empiezan
-         * con contadores en cero.
-         */
-
-        const { error } = await supabase
-          .from('menu_opciones')
-          .insert({
-            menu_grupo_id: menuGrupoId,
-            opcion_id: opcionId,
-            activo: true,
-            orden: index,
-            porciones_preparadas: 0,
-            porciones_reservadas: 0,
-            porciones_consumidas: 0,
-            agotado: false,
-          });
+        const { error } =
+          await supabase
+            .from('menu_opciones')
+            .insert({
+              menu_grupo_id:
+                menuGrupoId,
+              opcion_id:
+                opcionId,
+              activo: true,
+              orden: index,
+              porciones_preparadas: 0,
+              porciones_reservadas: 0,
+              porciones_consumidas: 0,
+              agotado: false,
+            });
 
         if (error) {
           throw error;
@@ -1073,14 +1198,8 @@ export default function CrearMenuModal({
       }
     }
 
-    /*
-     * Todo lo que existía pero ya no está seleccionado
-     * queda inactivo.
-     */
-
-    const seleccionadasSet = new Set(
-      seleccionadas
-    );
+    const seleccionadasSet =
+      new Set(seleccionadas);
 
     for (const existente of opcionesExistentes) {
       if (
@@ -1088,12 +1207,16 @@ export default function CrearMenuModal({
           existente.opcion_id
         )
       ) {
-        const { error } = await supabase
-          .from('menu_opciones')
-          .update({
-            activo: false,
-          })
-          .eq('id', existente.id);
+        const { error } =
+          await supabase
+            .from('menu_opciones')
+            .update({
+              activo: false,
+            })
+            .eq(
+              'id',
+              existente.id
+            );
 
         if (error) {
           throw error;
@@ -1120,7 +1243,10 @@ export default function CrearMenuModal({
       .select(
         'id, plato_id, activo'
       )
-      .eq('menu_id', menuIdActual)
+      .eq(
+        'menu_id',
+        menuIdActual
+      )
       .eq(
         'plato_id',
         configuracion.plato.id
@@ -1137,12 +1263,16 @@ export default function CrearMenuModal({
       menuPlatoId =
         menuPlatoExistente.id;
 
-      const { error } = await supabase
-        .from('menu_platos')
-        .update({
-          activo: true,
-        })
-        .eq('id', menuPlatoId);
+      const { error } =
+        await supabase
+          .from('menu_platos')
+          .update({
+            activo: true,
+          })
+          .eq(
+            'id',
+            menuPlatoId
+          );
 
       if (error) {
         throw error;
@@ -1154,7 +1284,8 @@ export default function CrearMenuModal({
       } = await supabase
         .from('menu_platos')
         .insert({
-          menu_id: menuIdActual,
+          menu_id:
+            menuIdActual,
           plato_id:
             configuracion.plato.id,
           activo: true,
@@ -1176,13 +1307,10 @@ export default function CrearMenuModal({
         nuevoMenuPlato.id;
     }
 
-    /*
-     * Sincronizar todos los grupos.
-     */
-
     for (const grupo of configuracion.grupos) {
       const seleccionadas =
-        configuracion.opcionesSeleccionadas[
+        configuracion
+          .opcionesSeleccionadas[
           grupo.id
         ] ?? [];
 
@@ -1192,11 +1320,6 @@ export default function CrearMenuModal({
         seleccionadas
       );
     }
-
-    /*
-     * Cualquier grupo que ya no pertenezca
-     * a la configuración queda inactivo.
-     */
 
     const {
       data: gruposExistentesData,
@@ -1215,11 +1338,12 @@ export default function CrearMenuModal({
       throw gruposError;
     }
 
-    const gruposActuales = new Set(
-      configuracion.grupos.map(
-        (grupo) => grupo.id
-      )
-    );
+    const gruposActuales =
+      new Set(
+        configuracion.grupos.map(
+          (grupo) => grupo.id
+        )
+      );
 
     for (
       const grupoExistente of
@@ -1234,15 +1358,16 @@ export default function CrearMenuModal({
           grupoExistente.id
         );
 
-        const { error } = await supabase
-          .from('menu_grupos')
-          .update({
-            activo: false,
-          })
-          .eq(
-            'id',
-            grupoExistente.id
-          );
+        const { error } =
+          await supabase
+            .from('menu_grupos')
+            .update({
+              activo: false,
+            })
+            .eq(
+              'id',
+              grupoExistente.id
+            );
 
         if (error) {
           throw error;
@@ -1274,7 +1399,8 @@ export default function CrearMenuModal({
       const {
         data: { user },
         error: usuarioError,
-      } = await supabase.auth.getUser();
+      } =
+        await supabase.auth.getUser();
 
       if (usuarioError) {
         throw usuarioError;
@@ -1285,12 +1411,6 @@ export default function CrearMenuModal({
           'No hay un usuario autenticado.'
         );
       }
-
-      /*
-       * -----------------------------------------------------
-       * OBTENER / CREAR MENÚ
-       * -----------------------------------------------------
-       */
 
       let menuIdActual = menuId;
 
@@ -1333,28 +1453,25 @@ export default function CrearMenuModal({
             .single();
 
           if (crearMenuError) {
-            /*
-             * Si otro usuario lo creó exactamente
-             * al mismo tiempo, intentamos recuperarlo.
-             */
-
             if (
               crearMenuError.code ===
               '23505'
             ) {
               const {
                 data: menuRecuperado,
-                error: recuperarError,
-              } = await supabase
-                .from('menus')
-                .select(
-                  'id, fecha, estado'
-                )
-                .eq(
-                  'fecha',
-                  fechaActual
-                )
-                .single();
+                error:
+                  recuperarError,
+              } =
+                await supabase
+                  .from('menus')
+                  .select(
+                    'id, fecha, estado'
+                  )
+                  .eq(
+                    'fecha',
+                    fechaActual
+                  )
+                  .single();
 
               if (recuperarError) {
                 throw recuperarError;
@@ -1385,9 +1502,7 @@ export default function CrearMenuModal({
       }
 
       /*
-       * -----------------------------------------------------
-       * SINCRONIZAR PLATOS ACTUALES
-       * -----------------------------------------------------
+       * Sincronizar platos actuales
        */
 
       for (const configuracion of configuraciones) {
@@ -1398,13 +1513,12 @@ export default function CrearMenuModal({
       }
 
       /*
-       * -----------------------------------------------------
-       * DESACTIVAR PLATOS QUE FUERON QUITADOS
-       * -----------------------------------------------------
+       * Desactivar platos eliminados
        */
 
       const {
-        data: menuPlatosExistentesData,
+        data:
+          menuPlatosExistentesData,
         error: menuPlatosError,
       } = await supabase
         .from('menu_platos')
@@ -1420,29 +1534,27 @@ export default function CrearMenuModal({
         throw menuPlatosError;
       }
 
-      const platosActuales = new Set(
-        configuraciones.map(
-          (configuracion) =>
-            configuracion.plato.id
-        )
-      );
+      const platosActuales =
+        new Set(
+          configuraciones.map(
+            (configuracion) =>
+              configuracion.plato.id
+          )
+        );
 
       for (
         const menuPlato of
-        menuPlatosExistentesData ?? []
+        menuPlatosExistentesData ??
+        []
       ) {
         if (
           !platosActuales.has(
             menuPlato.plato_id
           )
         ) {
-          /*
-           * No eliminamos.
-           * Solo desactivamos.
-           */
-
           const {
-            error: desactivarPlatoError,
+            error:
+              desactivarPlatoError,
           } = await supabase
             .from('menu_platos')
             .update({
@@ -1456,10 +1568,6 @@ export default function CrearMenuModal({
           if (desactivarPlatoError) {
             throw desactivarPlatoError;
           }
-
-          /*
-           * También desactivamos grupos y opciones.
-           */
 
           const {
             data: gruposData,
@@ -1476,7 +1584,8 @@ export default function CrearMenuModal({
             throw gruposError;
           }
 
-          for (const grupo of gruposData ?? []) {
+          for (const grupo of gruposData ??
+            []) {
             await desactivarOpcionesDelGrupo(
               grupo.id
             );
@@ -1499,12 +1608,6 @@ export default function CrearMenuModal({
         }
       }
 
-      /*
-       * -----------------------------------------------------
-       * MENSAJE FINAL
-       * -----------------------------------------------------
-       */
-
       setMensaje(
         modoEdicion
           ? 'El menú se actualizó correctamente.'
@@ -1518,11 +1621,6 @@ export default function CrearMenuModal({
         onClose();
       }, 350);
     } catch (err) {
-      console.error(
-        'Error guardando menú:',
-        err
-      );
-
       setError(
         err instanceof Error
           ? err.message
@@ -1544,7 +1642,8 @@ export default function CrearMenuModal({
   const platoSeleccionado =
     configuraciones.find(
       (item) =>
-        item.plato.id === platoActivo
+        item.plato.id ===
+        platoActivo
     );
 
   /*
@@ -1574,9 +1673,7 @@ export default function CrearMenuModal({
           shadow-2xl
         "
       >
-        {/* =================================================
-            HEADER
-            ================================================= */}
+        {/* HEADER */}
 
         <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-6 py-5">
           <div>
@@ -1627,9 +1724,7 @@ export default function CrearMenuModal({
           </button>
         </div>
 
-        {/* =================================================
-            FECHA
-            ================================================= */}
+        {/* FECHA */}
 
         <div className="shrink-0 border-b border-zinc-200 bg-zinc-50/70 px-6 py-4">
           <div className="flex items-center gap-3">
@@ -1657,15 +1752,15 @@ export default function CrearMenuModal({
               </p>
 
               <p className="text-sm font-medium capitalize text-zinc-800">
-                {formatearFecha(fechaMenu)}
+                {formatearFecha(
+                  fechaMenu
+                )}
               </p>
             </div>
           </div>
         </div>
 
-        {/* =================================================
-            ERROR
-            ================================================= */}
+        {/* ERROR */}
 
         {error && (
           <div className="shrink-0 border-b border-red-100 bg-red-50 px-6 py-3">
@@ -1680,7 +1775,9 @@ export default function CrearMenuModal({
 
               <button
                 type="button"
-                onClick={() => setError(null)}
+                onClick={() =>
+                  setError(null)
+                }
                 className="ml-auto text-xs text-red-400 hover:text-red-600"
               >
                 Cerrar
@@ -1689,9 +1786,7 @@ export default function CrearMenuModal({
           </div>
         )}
 
-        {/* =================================================
-            MENSAJE
-            ================================================= */}
+        {/* MENSAJE */}
 
         {mensaje && (
           <div className="shrink-0 border-b border-emerald-100 bg-emerald-50 px-6 py-3">
@@ -1708,14 +1803,10 @@ export default function CrearMenuModal({
           </div>
         )}
 
-        {/* =================================================
-            CONTENIDO
-            ================================================= */}
+        {/* CONTENIDO */}
 
         <div className="flex min-h-0 flex-1">
-          {/* =================================================
-              PLATOS
-              ================================================= */}
+          {/* PLATOS */}
 
           <div className="flex w-[300px] shrink-0 flex-col border-r border-zinc-200 bg-zinc-50/40 p-5">
             <div className="mb-4 shrink-0">
@@ -1740,7 +1831,8 @@ export default function CrearMenuModal({
                   )
                 )}
               </div>
-            ) : platos.length === 0 ? (
+            ) : platos.length ===
+              0 ? (
               <div className="overflow-y-auto">
                 <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-5 text-center">
                   <p className="text-sm font-medium text-zinc-700">
@@ -1755,12 +1847,6 @@ export default function CrearMenuModal({
                 </div>
               </div>
             ) : (
-              /*
-               * SCROLL INTERNO DEL LISTADO DE PLATOS
-               *
-               * El panel izquierdo permanece fijo.
-               * Solo esta zona hace scroll.
-               */
               <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                 <div className="space-y-2">
                   {platos.map(
@@ -1846,9 +1932,7 @@ export default function CrearMenuModal({
             )}
           </div>
 
-          {/* =================================================
-              CONFIGURACIÓN
-              ================================================= */}
+          {/* CONFIGURACIÓN */}
 
           <div className="min-w-0 flex-1 overflow-y-auto p-6">
             {!platoSeleccionado ? (
@@ -1891,7 +1975,7 @@ export default function CrearMenuModal({
               </div>
             ) : (
               <>
-                {/* TITULO */}
+                {/* TÍTULO */}
 
                 <div className="mb-6 flex items-start justify-between">
                   <div>
@@ -1900,11 +1984,17 @@ export default function CrearMenuModal({
                     </p>
 
                     <h3 className="mt-1 text-xl font-semibold text-zinc-900">
-                      {platoSeleccionado.plato.nombre}
+                      {
+                        platoSeleccionado
+                          .plato.nombre
+                      }
                     </h3>
 
                     <p className="mt-1 text-xs capitalize text-zinc-400">
-                      {platoSeleccionado.plato.categoria}
+                      {
+                        platoSeleccionado
+                          .plato.categoria
+                      }
                     </p>
                   </div>
 
@@ -1916,7 +2006,8 @@ export default function CrearMenuModal({
                     }
                     onClick={() =>
                       eliminarPlato(
-                        platoSeleccionado.plato.id
+                        platoSeleccionado
+                          .plato.id
                       )
                     }
                     className="
@@ -1941,7 +2032,8 @@ export default function CrearMenuModal({
 
                 {/* SIN GRUPOS */}
 
-                {platoSeleccionado.grupos.length ===
+                {platoSeleccionado
+                  .grupos.length ===
                 0 ? (
                   <div
                     className="
@@ -2009,17 +2101,21 @@ export default function CrearMenuModal({
                               </div>
 
                               <span className="text-xs text-zinc-400">
-                                {seleccionadas.length}{' '}
+                                {
+                                  seleccionadas.length
+                                }{' '}
                                 seleccionada
                                 {seleccionadas.length !==
-                                  1 && 's'}
+                                  1 &&
+                                  's'}
                               </span>
                             </div>
 
                             {/* OPCIONES */}
 
                             <div className="p-3">
-                              {grupo.opciones.length ===
+                              {grupo.opciones
+                                .length ===
                               0 ? (
                                 <div className="mb-3 rounded-lg border border-dashed border-zinc-200 bg-zinc-50 px-4 py-4">
                                   <p className="text-xs text-zinc-400">
@@ -2028,12 +2124,6 @@ export default function CrearMenuModal({
                                   </p>
                                 </div>
                               ) : (
-                                /*
-                                 * GRID DE OPCIONES
-                                 *
-                                 * Ahora cada botón funciona
-                                 * como checkbox múltiple.
-                                 */
                                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                   {grupo.opciones.map(
                                     (opcion) => {
@@ -2044,7 +2134,9 @@ export default function CrearMenuModal({
 
                                       return (
                                         <button
-                                          key={opcion.id}
+                                          key={
+                                            opcion.id
+                                          }
                                           type="button"
                                           disabled={
                                             guardando ||
@@ -2097,14 +2189,18 @@ export default function CrearMenuModal({
                                           >
                                             {seleccionada && (
                                               <Check
-                                                size={10}
+                                                size={
+                                                  10
+                                                }
                                               />
                                             )}
                                           </span>
 
                                           <span className="min-w-0 flex-1">
                                             <span className="block truncate text-sm text-zinc-700">
-                                              {opcion.nombre}
+                                              {
+                                                opcion.nombre
+                                              }
                                             </span>
 
                                             {opcion.recargo >
@@ -2114,17 +2210,6 @@ export default function CrearMenuModal({
                                                 {opcion.recargo.toLocaleString(
                                                   'es-CO'
                                                 )}
-                                              </span>
-                                            )}
-
-                                            {opcion.stock_porciones !==
-                                              null && (
-                                              <span className="mt-0.5 block text-[10px] text-zinc-400">
-                                                Stock:{' '}
-                                                {
-                                                  opcion.stock_porciones
-                                                }{' '}
-                                                porciones
                                               </span>
                                             )}
                                           </span>
@@ -2208,14 +2293,19 @@ export default function CrearMenuModal({
                                           value={
                                             nuevaOpcion.nombre
                                           }
-                                          onChange={(e) =>
+                                          onChange={(
+                                            e
+                                          ) =>
                                             setNuevaOpcion(
-                                              (prev) =>
+                                              (
+                                                prev
+                                              ) =>
                                                 prev
                                                   ? {
                                                       ...prev,
                                                       nombre:
-                                                        e.target
+                                                        e
+                                                          .target
                                                           .value,
                                                     }
                                                   : prev
@@ -2265,9 +2355,13 @@ export default function CrearMenuModal({
                                               value={
                                                 nuevaOpcion.recargo
                                               }
-                                              onChange={(e) =>
+                                              onChange={(
+                                                e
+                                              ) =>
                                                 setNuevaOpcion(
-                                                  (prev) =>
+                                                  (
+                                                    prev
+                                                  ) =>
                                                     prev
                                                       ? {
                                                           ...prev,
@@ -2317,9 +2411,13 @@ export default function CrearMenuModal({
                                             value={
                                               nuevaOpcion.stock_porciones
                                             }
-                                            onChange={(e) =>
+                                            onChange={(
+                                              e
+                                            ) =>
                                               setNuevaOpcion(
-                                                (prev) =>
+                                                (
+                                                  prev
+                                                ) =>
                                                   prev
                                                     ? {
                                                         ...prev,
@@ -2411,7 +2509,9 @@ export default function CrearMenuModal({
                                           {creandoOpcion ? (
                                             <>
                                               <Loader2
-                                                size={13}
+                                                size={
+                                                  13
+                                                }
                                                 className="animate-spin"
                                               />
                                               Agregando...
@@ -2419,7 +2519,9 @@ export default function CrearMenuModal({
                                           ) : (
                                             <>
                                               <Plus
-                                                size={13}
+                                                size={
+                                                  13
+                                                }
                                               />
                                               Agregar opción
                                             </>
@@ -2441,20 +2543,21 @@ export default function CrearMenuModal({
           </div>
         </div>
 
-        {/* =================================================
-            FOOTER
-            ================================================= */}
+        {/* FOOTER */}
 
         <div className="flex shrink-0 items-center justify-between border-t border-zinc-200 bg-white px-6 py-4">
           <p className="text-xs text-zinc-400">
-            {configuraciones.length === 0
+            {configuraciones.length ===
+            0
               ? 'No has seleccionado ningún plato'
               : `${configuraciones.length} plato${
-                  configuraciones.length !== 1
+                  configuraciones.length !==
+                  1
                     ? 's'
                     : ''
                 } configurado${
-                  configuraciones.length !== 1
+                  configuraciones.length !==
+                  1
                     ? 's'
                     : ''
                 }`}
@@ -2489,7 +2592,8 @@ export default function CrearMenuModal({
               type="button"
               disabled={
                 guardando ||
-                configuraciones.length === 0 ||
+                configuraciones.length ===
+                  0 ||
                 cargandoGrupos ||
                 cargandoMenu ||
                 creandoOpcion
@@ -2545,4 +2649,3 @@ export default function CrearMenuModal({
     </div>
   );
 }
-

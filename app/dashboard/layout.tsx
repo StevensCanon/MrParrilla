@@ -153,6 +153,7 @@ export default function DashboardLayout({
                 width={60}
                 height={60}
                 className="object-contain"
+                loading="eager"
               />
             </div>
 

@@ -187,6 +187,7 @@ export default function LoginPage() {
                 width={100}
                 height={100}
                 className="object-contain"
+                loading="eager"
               />
             </div>
 
