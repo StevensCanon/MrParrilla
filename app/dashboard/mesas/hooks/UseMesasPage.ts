@@ -81,6 +81,9 @@ export function useMesasPage() {
   const [dialogoPagoEfectivo, setDialogoPagoEfectivo] =
     useState(false);
 
+  const [dialogoPagoTransferencia, setDialogoPagoTransferencia] =
+    useState(false);
+
   const [montoRecibido, setMontoRecibido] =
     useState("");
 
@@ -1421,6 +1424,96 @@ export function useMesasPage() {
     setMontoRecibido("");
   };
 
+  const abrirPagoTransferencia = () => {
+    if (!esCajero || !mesaDetalleCajero) {
+      return;
+    }
+
+    const comanda = obtenerComandaMesa(
+      mesaDetalleCajero.id,
+    );
+
+    if (!comanda) {
+      setError("La mesa ya no tiene una comanda abierta.");
+      void cargarDatos();
+      cerrarDetalleCajero();
+      return;
+    }
+
+    setError(null);
+    setDialogoPagoTransferencia(true);
+  };
+
+  const cerrarPagoTransferencia = () => {
+    if (pagando) {
+      return;
+    }
+
+    setDialogoPagoTransferencia(false);
+  };
+
+  const confirmarPagoTransferencia = async () => {
+    if (!mesaDetalleCajero) {
+      return;
+    }
+
+    const comanda = obtenerComandaMesa(
+      mesaDetalleCajero.id,
+    );
+
+    if (!comanda) {
+      setError("La mesa ya no tiene una comanda abierta.");
+      cerrarPagoTransferencia();
+      cerrarDetalleCajero();
+      await cargarDatos();
+      return;
+    }
+
+    if (totalMesaCajero <= 0) {
+      setError("La comanda no tiene un total válido para cobrar.");
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    setError(null);
+    setPagando(true);
+
+    try {
+      const { error: errorPago } = await supabase.rpc(
+        "confirmar_pago_transferencia",
+        {
+          p_comanda_id: comanda.id,
+        },
+      );
+
+      if (errorPago) {
+        throw new Error(errorPago.message);
+      }
+
+      setDialogoPagoTransferencia(false);
+      setDialogoDetalleCajero(false);
+      setMesaDetalleCajero(null);
+
+      await cargarDatos();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo registrar el pago por transferencia.",
+      );
+    } finally {
+      setPagando(false);
+    }
+  };
+
   const confirmarPagoEfectivo = async () => {
     if (!mesaDetalleCajero) {
       return;
@@ -2698,6 +2791,7 @@ export function useMesasPage() {
     mesaDetalleCajero,
     dialogoDetalleCajero,
     dialogoPagoEfectivo,
+    dialogoPagoTransferencia,
     montoRecibido,
     pagando,
 
@@ -2745,6 +2839,9 @@ export function useMesasPage() {
     abrirPagoEfectivo,
     cerrarPagoEfectivo,
     confirmarPagoEfectivo,
+    abrirPagoTransferencia,
+    cerrarPagoTransferencia,
+    confirmarPagoTransferencia,
     setMontoRecibido,
 
     agregarPlato,
