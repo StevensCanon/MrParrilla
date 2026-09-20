@@ -229,6 +229,9 @@ export default function MesasPage() {
         onPagar={
           mesas.abrirPagoEfectivo
         }
+        onPagarTransferencia={
+          mesas.abrirPagoTransferencia
+        }
       />
 
       {/* =====================================================
