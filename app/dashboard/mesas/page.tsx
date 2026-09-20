@@ -16,6 +16,7 @@ import { DetalleMesaCajeroDialog } from "./components/DetalleMesaCajeroDialog";
 import { PagoEfectivoDialog } from "./components/PagoEfectivoDialog";
 import { ComandaDialog } from "./components/ComandaDialog";
 import { ConfigurarPlatoDialog } from "./components/ConfigurarPlatoDialog";
+import { PagoTransferenciaDialog } from "./components/PagoTransferenciaDialog";
 
 export default function MesasPage() {
   const mesas = useMesasPage();
@@ -255,6 +256,20 @@ export default function MesasPage() {
         }
         onConfirmar={() =>
           void mesas.confirmarPagoEfectivo()
+        }
+      />
+
+      {/* =====================================================
+          PAGO POR TRANSFERENCIA
+      ===================================================== */}
+
+      <PagoTransferenciaDialog
+        open={mesas.dialogoPagoTransferencia}
+        total={mesas.totalMesaCajero}
+        pagando={mesas.pagando}
+        onClose={mesas.cerrarPagoTransferencia}
+        onConfirmar={() =>
+          void mesas.confirmarPagoTransferencia()
         }
       />
 
