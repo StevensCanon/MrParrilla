@@ -44,6 +44,7 @@ import {
 } from "../utils/utils";
 
 export function useMesasPage() {
+  
   const router = useRouter();
 
   const [mesas, setMesas] = useState<Mesa[]>([]);
@@ -505,7 +506,7 @@ export function useMesasPage() {
       data: gruposBaseData,
       error: gruposBaseError,
     } = await supabase
-      .from("grupos_opcion")
+      .from("menu_categorias_platos")
       .select(
         "id, nombre, obligatorio, orden",
       )
@@ -1263,7 +1264,7 @@ export function useMesasPage() {
       grupoIds.length > 0
         ? await supabase
             .from(
-              "grupos_opcion",
+              "menu_categorias_platos",
             )
             .select(
               "id, nombre",

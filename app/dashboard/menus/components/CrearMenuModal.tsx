@@ -10,6 +10,8 @@ import {
   X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { IoCalendarNumber } from "react-icons/io5";
+import { FaCalendarAlt } from "react-icons/fa";
 
 type Plato = {
   id: string;
@@ -1678,7 +1680,7 @@ export default function CrearMenuModal({
         <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-6 py-5">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-zinc-900">
+              <h2 className="text-lg font-bold text-zinc-900">
                 {modoEdicion
                   ? 'Editar menú'
                   : 'Crear menú del día'}
@@ -1728,30 +1730,16 @@ export default function CrearMenuModal({
 
         <div className="shrink-0 border-b border-zinc-200 bg-zinc-50/70 px-6 py-4">
           <div className="flex items-center gap-3">
-            <div
-              className="
-                flex
-                h-10
-                w-10
-                items-center
-                justify-center
-                rounded-xl
-                bg-white
-                text-zinc-600
-                shadow-sm
-                ring-1
-                ring-zinc-200
-              "
-            >
-              📅
-            </div>
+           
+            <IoCalendarNumber  className='text-black w-10 h-10'/>
+           
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+              <p className="text-xs uppercase tracking-wide text-black font-bold">
                 Fecha del menú
               </p>
 
-              <p className="text-sm font-medium capitalize text-zinc-800">
+              <p className="text-sm font-normal capitalize text-zinc-500">
                 {formatearFecha(
                   fechaMenu
                 )}

@@ -42,7 +42,7 @@ export default function MesasPage() {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl text-[#22201D]">
+          <h1 className="text-2xl text-[#22201D] font-bold">
             Mesas
           </h1>
 

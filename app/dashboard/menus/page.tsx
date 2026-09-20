@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 
-import CrearMenuModal from '@/components/modal/CrearMenuModal';
+import CrearMenuModal from './components/CrearMenuModal';
 
 import MenusHeader from './components/MenusHeader';
 import MenusFiltros from './components/MenusFiltros';

@@ -71,7 +71,7 @@ export default function PlatoDialog({
           <div className="space-y-2">
             <label
               htmlFor="nombre-plato"
-              className="text-sm font-medium"
+              className="text-sm font-medium "
             >
               Nombre
             </label>
@@ -87,6 +87,7 @@ export default function PlatoDialog({
               }
               placeholder="Ej. Bandeja paisa"
               disabled={guardando}
+              className="mt-2"
             />
           </div>
 
@@ -94,7 +95,7 @@ export default function PlatoDialog({
           <div className="space-y-2">
             <label
               htmlFor="categoria-plato"
-              className="text-sm font-medium"
+              className="text-sm font-medium "
             >
               Categoría
             </label>
@@ -108,16 +109,21 @@ export default function PlatoDialog({
                 }))
               }
               disabled={guardando}
+            
+              
+           
             >
-              <SelectTrigger id="categoria-plato">
-                <SelectValue placeholder="Selecciona una categoría" />
+              <SelectTrigger id="categoria-plato" className={'mt-2'} >
+                <SelectValue placeholder="Selecciona una categoría"  />
               </SelectTrigger>
 
-              <SelectContent>
+              <SelectContent >
                 {CATEGORIAS.map((categoria) => (
                   <SelectItem
                     key={categoria}
                     value={categoria}
+                
+                    
                   >
                     {categoria
                       .replace(/_/g, " ")
@@ -153,6 +159,7 @@ export default function PlatoDialog({
               }
               placeholder="Ej. 15000"
               disabled={guardando}
+               className="mt-2"
             />
           </div>
 
@@ -168,7 +175,7 @@ export default function PlatoDialog({
                 }))
               }
               disabled={guardando}
-              className="h-4 w-4"
+              className="h-4 w-4 rounded-2xl "
             />
 
             <span className="text-sm">
@@ -183,6 +190,7 @@ export default function PlatoDialog({
             variant="outline"
             onClick={() => onAbiertoChange(false)}
             disabled={guardando}
+            className="bg-red-400 text-white cursor-pointer hover:bg-red-600 hover:text-white"
           >
             Cancelar
           </Button>
@@ -191,12 +199,14 @@ export default function PlatoDialog({
             type="button"
             onClick={onGuardar}
             disabled={guardando}
+            className="bg-black/70 text-white hover:bg-black hover:text-white cursor-pointer"
           >
             {guardando
               ? "Guardando..."
               : platoEditando
                 ? "Guardar cambios"
                 : "Crear plato"}
+          
           </Button>
         </DialogFooter>
       </DialogContent>

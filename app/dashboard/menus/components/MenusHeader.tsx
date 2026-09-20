@@ -8,7 +8,7 @@ type MenusHeaderProps = {
     return (
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
             Menús
           </h1>
   
@@ -35,6 +35,7 @@ type MenusHeaderProps = {
             shadow-sm
             transition
             hover:bg-zinc-800
+            cursor-pointer
           "
         >
           <span className="text-base leading-none">
