@@ -13,8 +13,10 @@ import { MesasGrid } from "./components/MesasGrid";
 import { CrearMesaDialog } from "./components/CrearMesaDialog";
 import { EditarMesaDialog } from "./components/EditarMesaDialog";
 import { DetalleMesaCajeroDialog } from "./components/DetalleMesaCajeroDialog";
+import { PagoEfectivoDialog } from "./components/PagoEfectivoDialog";
 import { ComandaDialog } from "./components/ComandaDialog";
 import { ConfigurarPlatoDialog } from "./components/ConfigurarPlatoDialog";
+import { PagoTransferenciaDialog } from "./components/PagoTransferenciaDialog";
 
 export default function MesasPage() {
   const mesas = useMesasPage();
@@ -223,6 +225,54 @@ export default function MesasPage() {
         }
         onClose={
           mesas.cerrarDetalleCajero
+        }
+        onPagar={
+          mesas.abrirPagoEfectivo
+        }
+        onPagarTransferencia={
+          mesas.abrirPagoTransferencia
+        }
+      />
+
+      {/* =====================================================
+          PAGO EN EFECTIVO
+      ===================================================== */}
+
+      <PagoEfectivoDialog
+        open={
+          mesas.dialogoPagoEfectivo
+        }
+        total={
+          mesas.totalMesaCajero
+        }
+        montoRecibido={
+          mesas.montoRecibido
+        }
+        pagando={
+          mesas.pagando
+        }
+        onClose={
+          mesas.cerrarPagoEfectivo
+        }
+        onMontoRecibidoChange={
+          mesas.setMontoRecibido
+        }
+        onConfirmar={() =>
+          void mesas.confirmarPagoEfectivo()
+        }
+      />
+
+      {/* =====================================================
+          PAGO POR TRANSFERENCIA
+      ===================================================== */}
+
+      <PagoTransferenciaDialog
+        open={mesas.dialogoPagoTransferencia}
+        total={mesas.totalMesaCajero}
+        pagando={mesas.pagando}
+        onClose={mesas.cerrarPagoTransferencia}
+        onConfirmar={() =>
+          void mesas.confirmarPagoTransferencia()
         }
       />
 

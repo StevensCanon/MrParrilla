@@ -79,6 +79,17 @@ export function useMesasPage() {
   const [dialogoDetalleCajero, setDialogoDetalleCajero] =
     useState(false);
 
+  const [dialogoPagoEfectivo, setDialogoPagoEfectivo] =
+    useState(false);
+
+  const [dialogoPagoTransferencia, setDialogoPagoTransferencia] =
+    useState(false);
+
+  const [montoRecibido, setMontoRecibido] =
+    useState("");
+
+  const [pagando, setPagando] = useState(false);
+
   const [itemsSeleccionados, setItemsSeleccionados] =
     useState<ItemSeleccionado[]>([]);
 
@@ -1384,11 +1395,208 @@ export function useMesasPage() {
     setDialogoDetalleCajero(true);
   };
 
-  const cerrarDetalleCajero =
-    () => {
+  const abrirPagoEfectivo = () => {
+    if (!esCajero || !mesaDetalleCajero) {
+      return;
+    }
+
+    const comanda = obtenerComandaMesa(
+      mesaDetalleCajero.id,
+    );
+
+    if (!comanda) {
+      setError("La mesa ya no tiene una comanda abierta.");
+      void cargarDatos();
+      cerrarDetalleCajero();
+      return;
+    }
+
+    setError(null);
+    setMontoRecibido("");
+    setDialogoPagoEfectivo(true);
+  };
+
+  const cerrarPagoEfectivo = () => {
+    if (pagando) {
+      return;
+    }
+
+    setDialogoPagoEfectivo(false);
+    setMontoRecibido("");
+  };
+
+  const abrirPagoTransferencia = () => {
+    if (!esCajero || !mesaDetalleCajero) {
+      return;
+    }
+
+    const comanda = obtenerComandaMesa(
+      mesaDetalleCajero.id,
+    );
+
+    if (!comanda) {
+      setError("La mesa ya no tiene una comanda abierta.");
+      void cargarDatos();
+      cerrarDetalleCajero();
+      return;
+    }
+
+    setError(null);
+    setDialogoPagoTransferencia(true);
+  };
+
+  const cerrarPagoTransferencia = () => {
+    if (pagando) {
+      return;
+    }
+
+    setDialogoPagoTransferencia(false);
+  };
+
+  const confirmarPagoTransferencia = async () => {
+    if (!mesaDetalleCajero) {
+      return;
+    }
+
+    const comanda = obtenerComandaMesa(
+      mesaDetalleCajero.id,
+    );
+
+    if (!comanda) {
+      setError("La mesa ya no tiene una comanda abierta.");
+      cerrarPagoTransferencia();
+      cerrarDetalleCajero();
+      await cargarDatos();
+      return;
+    }
+
+    if (totalMesaCajero <= 0) {
+      setError("La comanda no tiene un total válido para cobrar.");
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    setError(null);
+    setPagando(true);
+
+    try {
+      const { error: errorPago } = await supabase.rpc(
+        "confirmar_pago_transferencia",
+        {
+          p_comanda_id: comanda.id,
+        },
+      );
+
+      if (errorPago) {
+        throw new Error(errorPago.message);
+      }
+
+      setDialogoPagoTransferencia(false);
       setDialogoDetalleCajero(false);
       setMesaDetalleCajero(null);
-    };
+
+      await cargarDatos();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo registrar el pago por transferencia.",
+      );
+    } finally {
+      setPagando(false);
+    }
+  };
+
+  const confirmarPagoEfectivo = async () => {
+    if (!mesaDetalleCajero) {
+      return;
+    }
+
+    const comanda = obtenerComandaMesa(
+      mesaDetalleCajero.id,
+    );
+
+    if (!comanda) {
+      setError("La mesa ya no tiene una comanda abierta.");
+      cerrarPagoEfectivo();
+      cerrarDetalleCajero();
+      await cargarDatos();
+      return;
+    }
+
+    const recibido = Number(montoRecibido);
+
+    if (!Number.isFinite(recibido) || recibido <= 0) {
+      setError("Ingresa un monto recibido válido.");
+      return;
+    }
+
+    if (recibido < totalMesaCajero) {
+      setError(
+        "El dinero recibido es insuficiente. Total: " +
+          totalMesaCajero,
+      );
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    setError(null);
+    setPagando(true);
+
+    try {
+      const { error: errorPago } = await supabase.rpc(
+        "confirmar_pago_efectivo",
+        {
+          p_comanda_id: comanda.id,
+          p_monto_recibido: recibido,
+        },
+      );
+
+      if (errorPago) {
+        throw new Error(errorPago.message);
+      }
+
+      setDialogoPagoEfectivo(false);
+      setMontoRecibido("");
+      setDialogoDetalleCajero(false);
+      setMesaDetalleCajero(null);
+
+      await cargarDatos();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo registrar el pago en efectivo.",
+      );
+    } finally {
+      setPagando(false);
+    }
+  };
+
+  const cerrarDetalleCajero = () => {
+    if (pagando) {
+      return;
+    }
+
+    setDialogoDetalleCajero(false);
+    setMesaDetalleCajero(null);
+  };
 
   /*
    * ==========================================================
@@ -2583,6 +2791,10 @@ export function useMesasPage() {
 
     mesaDetalleCajero,
     dialogoDetalleCajero,
+    dialogoPagoEfectivo,
+    dialogoPagoTransferencia,
+    montoRecibido,
+    pagando,
 
     itemsSeleccionados,
     busqueda,
@@ -2625,6 +2837,13 @@ export function useMesasPage() {
 
     abrirDetalleCajero,
     cerrarDetalleCajero,
+    abrirPagoEfectivo,
+    cerrarPagoEfectivo,
+    confirmarPagoEfectivo,
+    abrirPagoTransferencia,
+    cerrarPagoTransferencia,
+    confirmarPagoTransferencia,
+    setMontoRecibido,
 
     agregarPlato,
     quitarPlato,

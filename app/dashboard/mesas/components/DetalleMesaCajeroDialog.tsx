@@ -34,6 +34,8 @@ type DetalleMesaCajeroDialogProps = {
   items: ComandaItem[];
   total: number;
   onClose: () => void;
+  onPagar: () => void;
+  onPagarTransferencia: () => void;
 };
 
 export function DetalleMesaCajeroDialog({
@@ -43,6 +45,8 @@ export function DetalleMesaCajeroDialog({
   items,
   total,
   onClose,
+  onPagar,
+  onPagarTransferencia,
 }: DetalleMesaCajeroDialogProps) {
   const padres = items.filter(
     (item) => item.item_padre_id === null,
@@ -191,6 +195,24 @@ export function DetalleMesaCajeroDialog({
           >
             <X size={15} />
             Cerrar
+          </Button>
+
+          <Button
+            type="button"
+            onClick={onPagar}
+            disabled={padres.length === 0 || total <= 0}
+            className="cursor-pointer bg-[#3D8060] text-white hover:bg-[#32694F] disabled:cursor-not-allowed"
+          >
+            Pagar
+          </Button>
+
+          <Button
+            type="button"
+            onClick={onPagarTransferencia}
+            disabled={padres.length === 0 || total <= 0}
+            className="cursor-pointer bg-[#3D8060] text-white hover:bg-[#32694F] disabled:cursor-not-allowed"
+          >
+            Transferencia
           </Button>
         </DialogFooter>
       </DialogContent>
