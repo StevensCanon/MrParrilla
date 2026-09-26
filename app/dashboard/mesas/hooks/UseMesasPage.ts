@@ -1005,7 +1005,7 @@ export function useMesasPage() {
       return;
     }
 
-    if (!/^\\d+$/.test(numero)) {
+    if (!/^\d+$/.test(numero)) {
       setError("El número de mesa debe contener únicamente números.");
       return;
     }
@@ -1069,7 +1069,7 @@ export function useMesasPage() {
     setMesaEditando(mesa);
     setNumeroMesa(
       mesa.nombre.replace(
-        /^mesa\\s*/i,
+        /^mesa\s*/i,
         "",
       ),
     );
@@ -1088,7 +1088,7 @@ export function useMesasPage() {
       return;
     }
 
-    if (!/^\\d+$/.test(numero)) {
+    if (!/^\d+$/.test(numero)) {
       setError("El número de mesa debe contener únicamente números.");
       return;
     }
