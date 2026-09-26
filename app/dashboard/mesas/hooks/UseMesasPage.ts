@@ -3,10 +3,12 @@
 import {
   useCallback,
   useMemo,
+  useEffect,
   useState,
   type MouseEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+
 
 import { supabase } from "@/lib/supabaseClient";
 import { obtenerUsuarioAutenticado } from "../services/auth";
@@ -190,6 +192,57 @@ export function useMesasPage() {
     } finally {
       setLoading(false);
     }
+  }, [router]);
+
+  useEffect(() => {
+    let cancelado = false;
+  
+    const cargarDatosIniciales = async () => {
+      try {
+        const usuario = await obtenerUsuarioAutenticado();
+  
+        if (cancelado) return;
+  
+        if (!usuario) {
+          router.replace("/login");
+          return;
+        }
+  
+        setRolUsuario(usuario.rol);
+  
+        if (!usuario.rol) {
+          setError("No se pudo obtener el rol del usuario.");
+          return;
+        }
+  
+        const datos = await cargarDatosMesas();
+  
+        if (cancelado) return;
+  
+        setMesas(datos.mesas);
+        setPlatos(datos.platos);
+        setComandas(datos.comandas);
+        setItemsComandas(datos.itemsComandas);
+      } catch (err) {
+        if (cancelado) return;
+  
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No se pudo cargar la información de las mesas.",
+        );
+      } finally {
+        if (!cancelado) {
+          setLoading(false);
+        }
+      }
+    };
+  
+    void cargarDatosIniciales();
+  
+    return () => {
+      cancelado = true;
+    };
   }, [router]);
 
   /*
@@ -1410,7 +1463,7 @@ export function useMesasPage() {
     setMesaEditando,
     
     obtenerItemsMesa,
-
+    confirmarConfiguracionPlato,
     cargarDatos,
   };
 }
