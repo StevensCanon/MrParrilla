@@ -893,7 +893,7 @@ export async function confirmarComanda({
             }
           }
         }
-
+}
 
 export async function liberarComanda(comandaId: string): Promise<void> {
   const { error: errorItems } = await supabase
@@ -913,5 +913,4 @@ export async function liberarComanda(comandaId: string): Promise<void> {
   if (errorComanda) {
     throw new Error(errorComanda.message);
   }
-}
 }
