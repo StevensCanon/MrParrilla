@@ -894,4 +894,24 @@ export async function confirmarComanda({
           }
         }
 
+
+export async function liberarComanda(comandaId: string): Promise<void> {
+  const { error: errorItems } = await supabase
+    .from("comanda_items")
+    .delete()
+    .eq("comanda_id", comandaId);
+
+  if (errorItems) {
+    throw new Error(errorItems.message);
+  }
+
+  const { error: errorComanda } = await supabase
+    .from("comandas")
+    .delete()
+    .eq("id", comandaId);
+
+  if (errorComanda) {
+    throw new Error(errorComanda.message);
+  }
+}
 }
