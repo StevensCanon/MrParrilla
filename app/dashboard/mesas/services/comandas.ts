@@ -25,8 +25,7 @@ type ConfirmarComandaParams = {
 };
 
 export async function cargarItemsComanda(
-    comandaId: string,
-  ,
+  comandaId: string,
   platos: Plato[],
 ): Promise<ItemSeleccionado[]> {
     const {
@@ -894,9 +893,5 @@ export async function confirmarComanda({
             }
           }
         }
-
-        await cargarDatos();
-
-        cerrarDialogo();
 
 }
