@@ -8,7 +8,7 @@ import { MesaCard } from "./MesaCard";
 type MesasGridProps = {
   mesas: Mesa[];
   esAdmin: boolean;
-  esCajero: boolean;
+  puedeGestionarCaja: boolean;
   eliminandoMesa: boolean;
   estaOcupada: (mesaId: string) => boolean;
   obtenerTotalMesa: (mesaId: string) => number;
@@ -26,7 +26,7 @@ type MesasGridProps = {
 export function MesasGrid({
   mesas,
   esAdmin,
-  esCajero,
+  puedeGestionarCaja,
   eliminandoMesa,
   estaOcupada,
   obtenerTotalMesa,
@@ -69,7 +69,7 @@ export function MesasGrid({
                 : 0
             }
             esAdmin={esAdmin}
-            esCajero={esCajero}
+            puedeGestionarCaja={puedeGestionarCaja}
             eliminandoMesa={eliminandoMesa}
             onAbrir={onAbrirMesa}
             onEditar={onEditarMesa}
