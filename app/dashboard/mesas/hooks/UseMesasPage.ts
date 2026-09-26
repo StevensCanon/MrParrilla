@@ -10,6 +10,9 @@ import {
 import { useRouter } from "next/navigation";
 
 import { supabase } from "@/lib/supabaseClient";
+import { obtenerRolUsuario } from "../services/auth";
+import { cargarDatosMesas } from "../services/mesasData";
+import { cargarConfiguracionPlato } from "../services/platos";
 
 import {
   CANAL_COMANDA,
@@ -34,12 +37,9 @@ import {
   buscarComandaMesa,
   calcularTotalComanda,
   calcularTotalSeleccion,
-  esGrupoCaldosYSopas,
   generarUid,
   mesaEstaOcupada,
-  obtenerFechaColombia,
   obtenerOpcionesItem,
-  ordenarMesas,
   normalizarNumeroMesa,
 } from "../utils/utils";
 
@@ -143,42 +143,19 @@ export function useMesasPage() {
    */
 
   const cargarRolUsuario = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const rol = await obtenerRolUsuario();
+
+    if (!rol) {
+      setRolUsuario(null);
+      const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        setRolUsuario(null);
         router.push("/login");
-        return;
       }
-
-      const { data: rol, error: errorRol } =
-        await supabase.rpc("rol_actual");
-
-      if (errorRol) {
-        setRolUsuario(null);
-        return;
-      }
-
-      const rolNormalizado = String(rol ?? "")
-        .trim()
-        .toLowerCase();
-
-      if (
-        rolNormalizado === "admin" ||
-        rolNormalizado === "mesero" ||
-        rolNormalizado === "cocinero" ||
-        rolNormalizado === "cajero"
-      ) {
-        setRolUsuario(rolNormalizado);
-      } else {
-        setRolUsuario(null);
-      }
-    } catch {
-      setRolUsuario(null);
+      return;
     }
+
+    setRolUsuario(rol);
   }, [router]);
 
   /*
@@ -188,9 +165,6 @@ export function useMesasPage() {
    */
 
   const cargarDatos = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
     try {
       const {
         data: { user },
@@ -201,103 +175,23 @@ export function useMesasPage() {
         return;
       }
 
-      await cargarRolUsuario();
+      setLoading(true);
+      setError(null);
 
-      const [
-        { data: mesasData, error: mesasError },
-        { data: platosData, error: platosError },
-        { data: comandasData, error: comandasError },
-      ] = await Promise.all([
-        supabase
-          .from("mesas")
-          .select("id, nombre, activa")
-          .eq("activa", true)
-          .order("nombre", {
-            ascending: true,
-          }),
-
-        supabase
-          .from("platos")
-          .select(
-            "id, nombre, categoria, precio, disponible",
-          )
-          .eq("disponible", true)
-          .order("categoria", {
-            ascending: true,
-          })
-          .order("nombre", {
-            ascending: true,
-          }),
-
-        supabase
-          .from("comandas")
-          .select(
-            "id, mesa_id, mesero_id, estado",
-          )
-          .eq(
-            "estado",
-            ESTADO_COMANDA.ABIERTA,
-          )
-          .not("mesa_id", "is", null),
-      ]);
-
-      if (mesasError) {
-        throw new Error(mesasError.message);
-      }
-
-      if (platosError) {
-        throw new Error(platosError.message);
-      }
-
-      if (comandasError) {
-        throw new Error(comandasError.message);
-      }
-
-      const comandasFinales =
-        (comandasData as Comanda[]) ?? [];
-
-      setMesas(
-        ordenarMesas(
-          (mesasData as Mesa[]) ?? [],
-        ),
-      );
-
-      setPlatos(
-        (platosData as Plato[]) ?? [],
-      );
-
-      setComandas(comandasFinales);
-
-      if (comandasFinales.length === 0) {
-        setItemsComandas([]);
+      const rol = await obtenerRolUsuario();
+      if (!rol) {
+        setRolUsuario(null);
         return;
       }
 
-      const idsComandas =
-        comandasFinales.map(
-          (comanda) => comanda.id,
-        );
+      setRolUsuario(rol);
 
-      const {
-        data: itemsData,
-        error: itemsError,
-      } = await supabase
-        .from("comanda_items")
-        .select(
-          "id, comanda_id, plato_id, item_padre_id, opcion_id, cantidad, precio_unitario, estado, observaciones, menu_opcion_id",
-        )
-        .in("comanda_id", idsComandas)
-        .order("creado_en", {
-          ascending: true,
-        });
+      const datos = await cargarDatosMesas();
 
-      if (itemsError) {
-        throw new Error(itemsError.message);
-      }
-
-      setItemsComandas(
-        (itemsData as ComandaItem[]) ?? [],
-      );
+      setMesas(datos.mesas);
+      setPlatos(datos.platos);
+      setComandas(datos.comandas);
+      setItemsComandas(datos.itemsComandas);
     } catch (err) {
       setError(
         err instanceof Error
@@ -307,17 +201,7 @@ export function useMesasPage() {
     } finally {
       setLoading(false);
     }
-  }, [router, cargarRolUsuario]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void cargarDatos();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [cargarDatos]);
+  }, [router]);
 
   /*
    * ==========================================================
