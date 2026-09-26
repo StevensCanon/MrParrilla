@@ -50,6 +50,7 @@ import {
   generarUid,
   mesaEstaOcupada,
   normalizarNumeroMesa,
+  esGrupoCaldosYSopas,
 } from "../utils/utils";
 
 export function useMesasPage() {
@@ -301,11 +302,6 @@ export function useMesasPage() {
    * ==========================================================
    */
 
-<<<<<<< HEAD
-
-
-=======
->>>>>>> e07b5e5ac7141bb6e1549433a8bb7e23a4444f9b
   const abrirConfiguradorPlato =
     async (plato: Plato) => {
       setError(null);
@@ -499,6 +495,78 @@ export function useMesasPage() {
     ]);
 
  
+
+  const confirmarConfiguracionPlato =
+    () => {
+      if (
+        !platoConfigurando ||
+        !configuracionPlato
+      ) {
+        return;
+      }
+
+      setError(null);
+
+      for (const grupo of configuracionPlato.grupos) {
+        if (esGrupoCaldosYSopas(grupo.nombre)) {
+          continue;
+        }
+
+        if (!grupo.obligatorio) {
+          continue;
+        }
+
+        const disponibles = grupo.opciones.filter(
+          (opcion) => !opcion.agotado,
+        );
+
+        const seleccionadas =
+          seleccionesConfiguracion[grupo.id] ?? [];
+
+        if (
+          disponibles.length > 0 &&
+          seleccionadas.length === 0
+        ) {
+          setError(
+            `Selecciona al menos una opción en "${grupo.nombre}" para "${platoConfigurando.nombre}".`,
+          );
+          return;
+        }
+
+        if (
+          disponibles.length === 0 &&
+          grupo.opciones.length > 0
+        ) {
+          setError(
+            `No hay opciones disponibles para "${grupo.nombre}".`,
+          );
+          return;
+        }
+      }
+
+      const opciones = Object.values(
+        seleccionesConfiguracion,
+      ).flat();
+
+      const nuevoItem: ItemSeleccionado = {
+        uid: generarUid(),
+        plato_id: platoConfigurando.id,
+        nombre: platoConfigurando.nombre,
+        categoria: platoConfigurando.categoria,
+        precio: precioConfigurando,
+        cantidad: 1,
+        configurado: true,
+        observaciones: observacionesConfiguracion.trim(),
+        opciones,
+      };
+
+      setItemsSeleccionados((actuales) => [
+        ...actuales,
+        nuevoItem,
+      ]);
+
+      cerrarConfiguradorPlato();
+    };
 
   const cerrarConfiguradorPlato =
     () => {
