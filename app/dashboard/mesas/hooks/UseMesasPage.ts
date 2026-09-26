@@ -15,7 +15,18 @@ import { cargarConfiguracionPlato } from "../services/platos";
 import {
   cargarItemsComanda as cargarItemsComandaService,
   confirmarComanda as confirmarComandaService,
+  liberarComanda,
 } from "../services/comandas";
+import {
+  crearMesa as crearMesaService,
+  editarMesa as editarMesaService,
+  eliminarMesa as eliminarMesaService,
+  ordenarListaMesas,
+} from "../services/mesas";
+import {
+  confirmarPagoEfectivo as confirmarPagoEfectivoService,
+  confirmarPagoTransferencia as confirmarPagoTransferenciaService,
+} from "../services/pagos";
 
 import { CATEGORIAS } from "../constants/constants";
 
@@ -1066,9 +1077,7 @@ export function useMesasPage() {
       return;
     }
 
-    const comanda = obtenerComandaMesa(
-      mesaDetalleCajero.id,
-    );
+    const comanda = obtenerComandaMesa(mesaDetalleCajero.id);
 
     if (!comanda) {
       setError("La mesa ya no tiene una comanda abierta.");
@@ -1083,11 +1092,9 @@ export function useMesasPage() {
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
@@ -1096,21 +1103,10 @@ export function useMesasPage() {
     setPagando(true);
 
     try {
-      const { error: errorPago } = await supabase.rpc(
-        "confirmar_pago_transferencia",
-        {
-          p_comanda_id: comanda.id,
-        },
-      );
-
-      if (errorPago) {
-        throw new Error(errorPago.message);
-      }
-
+      await confirmarPagoTransferenciaService(comanda.id);
       setDialogoPagoTransferencia(false);
       setDialogoDetalleCajero(false);
       setMesaDetalleCajero(null);
-
       await cargarDatos();
     } catch (err) {
       setError(
@@ -1128,9 +1124,7 @@ export function useMesasPage() {
       return;
     }
 
-    const comanda = obtenerComandaMesa(
-      mesaDetalleCajero.id,
-    );
+    const comanda = obtenerComandaMesa(mesaDetalleCajero.id);
 
     if (!comanda) {
       setError("La mesa ya no tiene una comanda abierta.");
@@ -1149,17 +1143,14 @@ export function useMesasPage() {
 
     if (recibido < totalMesaCajero) {
       setError(
-        "El dinero recibido es insuficiente. Total: " +
-          totalMesaCajero,
+        "El dinero recibido es insuficiente. Total: " + totalMesaCajero,
       );
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
@@ -1168,23 +1159,11 @@ export function useMesasPage() {
     setPagando(true);
 
     try {
-      const { error: errorPago } = await supabase.rpc(
-        "confirmar_pago_efectivo",
-        {
-          p_comanda_id: comanda.id,
-          p_monto_recibido: recibido,
-        },
-      );
-
-      if (errorPago) {
-        throw new Error(errorPago.message);
-      }
-
+      await confirmarPagoEfectivoService(comanda.id, recibido);
       setDialogoPagoEfectivo(false);
       setMontoRecibido("");
       setDialogoDetalleCajero(false);
       setMesaDetalleCajero(null);
-
       await cargarDatos();
     } catch (err) {
       setError(
@@ -1302,51 +1281,32 @@ export function useMesasPage() {
   };
 
   const crearMesa = async () => {
-    const numero =
-      numeroMesa.trim();
+    const numero = numeroMesa.trim();
 
     if (!numero) {
-      setError(
-        "Ingresa el número de la mesa.",
-      );
+      setError("Ingresa el número de la mesa.");
       return;
     }
 
     if (!/^\d+$/.test(numero)) {
-      setError(
-        "El número de mesa debe contener únicamente números.",
-      );
+      setError("El número de mesa debe contener únicamente números.");
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
 
-    const numeroNormalizado =
-      normalizarNumeroMesa(
-        numero,
-      );
-
-    const nombre =
-      `Mesa ${numeroNormalizado}`;
-
-    const yaExiste =
-      mesas.some(
-        (mesa) =>
-          mesa.nombre.toLowerCase() ===
-          nombre.toLowerCase(),
-      );
+    const nombre = `Mesa ${normalizarNumeroMesa(numero)}`;
+    const yaExiste = mesas.some(
+      (mesa) => mesa.nombre.toLowerCase() === nombre.toLowerCase(),
+    );
 
     if (yaExiste) {
-      setError(
-        `La ${nombre} ya existe.`,
-      );
+      setError(`La ${nombre} ya existe.`);
       return;
     }
 
@@ -1354,33 +1314,11 @@ export function useMesasPage() {
     setCreandoMesa(true);
 
     try {
-      const {
-        data,
-        error,
-      } = await supabase
-        .from("mesas")
-        .insert({
-          nombre,
-          activa: true,
-        })
-        .select(
-          "id, nombre, activa",
-        )
-        .single();
+      const mesa = await crearMesaService(numero);
 
-      if (error) {
-        throw new Error(
-          error.message,
-        );
-      }
-
-      setMesas(
-        ordenarMesas([
-          ...mesas,
-          data as Mesa,
-        ]),
+      setMesas((actuales) =>
+        ordenarListaMesas([...actuales, mesa]),
       );
-
       setNumeroMesa("");
       setDialogoCrearMesa(false);
     } catch (err) {
@@ -1427,53 +1365,34 @@ export function useMesasPage() {
       return;
     }
 
-    const numero =
-      numeroMesa.trim();
+    const numero = numeroMesa.trim();
 
     if (!numero) {
-      setError(
-        "Ingresa el número de la mesa.",
-      );
+      setError("Ingresa el número de la mesa.");
       return;
     }
 
     if (!/^\d+$/.test(numero)) {
-      setError(
-        "El número de mesa debe contener únicamente números.",
-      );
+      setError("El número de mesa debe contener únicamente números.");
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
 
-    const numeroNormalizado =
-      normalizarNumeroMesa(
-        numero,
-      );
-
-    const nombre =
-      `Mesa ${numeroNormalizado}`;
-
-    const yaExiste =
-      mesas.some(
-        (mesa) =>
-          mesa.id !==
-            mesaEditando.id &&
-          mesa.nombre.toLowerCase() ===
-            nombre.toLowerCase(),
-      );
+    const nombre = `Mesa ${normalizarNumeroMesa(numero)}`;
+    const yaExiste = mesas.some(
+      (mesa) =>
+        mesa.id !== mesaEditando.id &&
+        mesa.nombre.toLowerCase() === nombre.toLowerCase(),
+    );
 
     if (yaExiste) {
-      setError(
-        `La ${nombre} ya existe.`,
-      );
+      setError(`La ${nombre} ya existe.`);
       return;
     }
 
@@ -1481,41 +1400,18 @@ export function useMesasPage() {
     setError(null);
 
     try {
-      const {
-        data,
-        error,
-      } = await supabase
-        .from("mesas")
-        .update({
-          nombre,
-        })
-        .eq(
-          "id",
-          mesaEditando.id,
-        )
-        .select(
-          "id, nombre, activa",
-        )
-        .single();
+      const mesa = await editarMesaService(
+        mesaEditando.id,
+        numero,
+      );
 
-      if (error) {
-        throw new Error(
-          error.message,
-        );
-      }
-
-      setMesas(
-        ordenarMesas(
-          mesas.map(
-            (mesa) =>
-              mesa.id ===
-              mesaEditando.id
-                ? (data as Mesa)
-                : mesa,
+      setMesas((actuales) =>
+        ordenarListaMesas(
+          actuales.map((actual) =>
+            actual.id === mesa.id ? mesa : actual,
           ),
         ),
       );
-
       setDialogoEditarMesa(false);
       setMesaEditando(null);
       setNumeroMesa("");
@@ -1553,20 +1449,17 @@ export function useMesasPage() {
       return;
     }
 
-    const confirmar =
-      window.confirm(
-        `¿Estás seguro de eliminar ${mesa.nombre}?\n\nEsta acción no se puede deshacer.`,
-      );
+    const confirmar = window.confirm(
+      `¿Estás seguro de eliminar ${mesa.nombre}?\n\nEsta acción no se puede deshacer.`,
+    );
 
     if (!confirmar) {
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
@@ -1575,24 +1468,10 @@ export function useMesasPage() {
     setError(null);
 
     try {
-      const { error } =
-        await supabase
-          .from("mesas")
-          .delete()
-          .eq("id", mesa.id);
+      await eliminarMesaService(mesa.id);
 
-      if (error) {
-        throw new Error(
-          error.message,
-        );
-      }
-
-      setMesas(
-        (actuales) =>
-          actuales.filter(
-            (actual) =>
-              actual.id !== mesa.id,
-          ),
+      setMesas((actuales) =>
+        actuales.filter((actual) => actual.id !== mesa.id),
       );
     } catch (err) {
       setError(
@@ -1672,30 +1551,24 @@ export function useMesasPage() {
       return;
     }
 
-    const comanda =
-      obtenerComandaMesa(
-        mesaSeleccionada.id,
-      );
+    const comanda = obtenerComandaMesa(mesaSeleccionada.id);
 
     if (!comanda) {
       cerrarDialogo();
       return;
     }
 
-    const confirmar =
-      window.confirm(
-        `¿Liberar ${mesaSeleccionada.nombre}?\n\nLa comanda actual se eliminará junto con sus productos y la mesa quedará libre.`,
-      );
+    const confirmar = window.confirm(
+      `¿Liberar ${mesaSeleccionada.nombre}?\n\nLa comanda actual se eliminará junto con sus productos y la mesa quedará libre.`,
+    );
 
     if (!confirmar) {
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
@@ -1704,58 +1577,14 @@ export function useMesasPage() {
     setError(null);
 
     try {
-      const {
-        error: errorItems,
-      } = await supabase
-        .from(
-          "comanda_items",
-        )
-        .delete()
-        .eq(
-          "comanda_id",
-          comanda.id,
-        );
+      await liberarComanda(comanda.id);
 
-      if (errorItems) {
-        throw new Error(
-          errorItems.message,
-        );
-      }
-
-      const {
-        error: errorComanda,
-      } = await supabase
-        .from("comandas")
-        .delete()
-        .eq(
-          "id",
-          comanda.id,
-        );
-
-      if (errorComanda) {
-        throw new Error(
-          errorComanda.message,
-        );
-      }
-
-      setComandas(
-        (actuales) =>
-          actuales.filter(
-            (actual) =>
-              actual.id !==
-              comanda.id,
-          ),
+      setComandas((actuales) =>
+        actuales.filter((actual) => actual.id !== comanda.id),
       );
-
-      setItemsComandas(
-        (actuales) =>
-          actuales.filter(
-            (item) =>
-              item.comanda_id !==
-              comanda.id,
-          ),
+      setItemsComandas((actuales) =>
+        actuales.filter((item) => item.comanda_id !== comanda.id),
       );
-
       cerrarDialogo();
     } catch (err) {
       setError(
@@ -1766,7 +1595,6 @@ export function useMesasPage() {
     } finally {
       setGuardando(false);
     }
-
   };
 
   return {
