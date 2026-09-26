@@ -60,7 +60,7 @@ export default function CocinaComanda({
           borderColor: colores.borde,
         }}
       >
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2 ">
           <div className="text-center">
             <div className="flex items-center ">
               {mesa && (
