@@ -15,7 +15,7 @@ type MesaCardProps = {
   ocupada: boolean;
   total: number;
   esAdmin: boolean;
-  esCajero: boolean;
+  puedeGestionarCaja: boolean;
   eliminandoMesa: boolean;
   onAbrir: (mesa: Mesa) => void;
   onEditar: (
@@ -33,7 +33,7 @@ export function MesaCard({
   ocupada,
   total,
   esAdmin,
-  esCajero,
+  puedeGestionarCaja,
   eliminandoMesa,
   onAbrir,
   onEditar,
@@ -76,7 +76,7 @@ export function MesaCard({
           {numero}
         </span>
 
-        {esCajero && ocupada && (
+        {puedeGestionarCaja && ocupada && (
           <div className="pointer-events-none absolute w-[160px] rounded-lg border border-[#D8D0C3] bg-white px-4 py-3 text-left opacity-0 shadow-xl transition-all duration-150 group-hover:opacity-100">
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-[#8A8375]">
               <Receipt size={13} />

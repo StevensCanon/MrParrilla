@@ -134,6 +134,7 @@ export function useMesasPage() {
 
   const esAdmin = rolUsuario === "admin";
   const esCajero = rolUsuario === "cajero";
+  const puedeGestionarCaja = esAdmin || esCajero;
 
   /*
    * ==========================================================
@@ -309,13 +310,7 @@ export function useMesasPage() {
   }, [router, cargarRolUsuario]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void cargarDatos();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
+    void cargarDatos();
   }, [cargarDatos]);
 
   /*
@@ -1384,7 +1379,7 @@ export function useMesasPage() {
     mesa: Mesa,
   ) => {
     if (
-      !esCajero ||
+      !puedeGestionarCaja ||
       !estaOcupada(mesa.id)
     ) {
       return;
@@ -1396,7 +1391,7 @@ export function useMesasPage() {
   };
 
   const abrirPagoEfectivo = () => {
-    if (!esCajero || !mesaDetalleCajero) {
+    if (!puedeGestionarCaja || !mesaDetalleCajero) {
       return;
     }
 
@@ -1426,7 +1421,7 @@ export function useMesasPage() {
   };
 
   const abrirPagoTransferencia = () => {
-    if (!esCajero || !mesaDetalleCajero) {
+    if (!puedeGestionarCaja || !mesaDetalleCajero) {
       return;
     }
 
@@ -1625,7 +1620,7 @@ export function useMesasPage() {
   ) => {
     setError(null);
 
-    if (esCajero) {
+    if (puedeGestionarCaja) {
       abrirDetalleCajero(mesa);
       return;
     }
@@ -2785,6 +2780,7 @@ export function useMesasPage() {
     rolUsuario,
     esAdmin,
     esCajero,
+    puedeGestionarCaja,
 
     mesaSeleccionada,
     dialogoAbierto,
