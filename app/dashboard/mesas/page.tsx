@@ -49,7 +49,7 @@ export default function MesasPage() {
           </h1>
 
           <p className="mt-1 text-sm text-[#8A8375]">
-            {mesas.esCajero
+            {mesas.puedeGestionarCaja
               ? "Consulta el consumo y total de las mesas ocupadas."
               : "Selecciona una mesa para crear o continuar una comanda."}
           </p>
@@ -130,7 +130,7 @@ export default function MesasPage() {
       <MesasGrid
         mesas={mesas.mesas}
         esAdmin={mesas.esAdmin}
-        esCajero={mesas.esCajero}
+        puedeGestionarCaja={mesas.puedeGestionarCaja}
         eliminandoMesa={
           mesas.eliminandoMesa
         }

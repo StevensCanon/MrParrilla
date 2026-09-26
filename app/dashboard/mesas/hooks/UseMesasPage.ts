@@ -2,20 +2,35 @@
 
 import {
   useCallback,
-  useEffect,
   useMemo,
+  useEffect,
   useState,
   type MouseEvent,
 } from "react";
 import { useRouter } from "next/navigation";
 
-import { supabase } from "@/lib/supabaseClient";
 
+import { supabase } from "@/lib/supabaseClient";
+import { obtenerUsuarioAutenticado } from "../services/auth";
+import { cargarDatosMesas } from "../services/mesasData";
+import { cargarConfiguracionPlato } from "../services/platos";
 import {
-  CANAL_COMANDA,
-  CATEGORIAS,
-  ESTADO_COMANDA,
-} from "../constants/constants";
+  cargarItemsComanda as cargarItemsComandaService,
+  confirmarComanda as confirmarComandaService,
+  liberarComanda,
+} from "../services/comandas";
+import {
+  crearMesa as crearMesaService,
+  editarMesa as editarMesaService,
+  eliminarMesa as eliminarMesaService,
+  ordenarListaMesas,
+} from "../services/mesas";
+import {
+  confirmarPagoEfectivo as confirmarPagoEfectivoService,
+  confirmarPagoTransferencia as confirmarPagoTransferenciaService,
+} from "../services/pagos";
+
+import { CATEGORIAS } from "../constants/constants";
 
 import type {
   Comanda,
@@ -34,13 +49,10 @@ import {
   buscarComandaMesa,
   calcularTotalComanda,
   calcularTotalSeleccion,
-  esGrupoCaldosYSopas,
   generarUid,
   mesaEstaOcupada,
-  obtenerFechaColombia,
-  obtenerOpcionesItem,
-  ordenarMesas,
   normalizarNumeroMesa,
+  esGrupoCaldosYSopas,
 } from "../utils/utils";
 
 export function useMesasPage() {
@@ -142,6 +154,7 @@ export function useMesasPage() {
 
   const esAdmin = rolUsuario === "admin";
   const esCajero = rolUsuario === "cajero";
+  const puedeGestionarCaja = esAdmin || esCajero;
 
 
   /*
@@ -150,49 +163,6 @@ export function useMesasPage() {
    * ==========================================================
    */
 
-  const cargarRolUsuario = useCallback(async () => {
-    try {
-
-      
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setRolUsuario(null);
-        router.push("/login");
-        return;
-      }
-
-      const { data: rol, error: errorRol } =
-        await supabase.rpc("rol_actual");
-
-      if (errorRol) {
-        setRolUsuario(null);
-        return;
-      }
-
-      const rolNormalizado = String(rol ?? "")
-        .trim()
-        .toLowerCase();
-
-      if (
-        rolNormalizado === "admin" ||
-        rolNormalizado === "mesero" ||
-        rolNormalizado === "cocinero" ||
-        rolNormalizado === "cajero"
-      ) {
-        setRolUsuario(rolNormalizado);
-      } else {
-        setRolUsuario(null);
-      }
-    } catch {
-      setRolUsuario(null);
-    }
-  }, [router]);
-
-
-
   /*
    * ==========================================================
    * CARGAR DATOS
@@ -200,116 +170,28 @@ export function useMesasPage() {
    */
 
   const cargarDatos = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const usuario = await obtenerUsuarioAutenticado();
 
-      if (!user) {
+      if (!usuario) {
         router.push("/login");
         return;
       }
 
-      await cargarRolUsuario();
+      setLoading(true);
+      setError(null);
+      setRolUsuario(usuario.rol);
 
-      const [
-        { data: mesasData, error: mesasError },
-        { data: platosData, error: platosError },
-        { data: comandasData, error: comandasError },
-      ] = await Promise.all([
-        supabase
-          .from("mesas")
-          .select("id, nombre, activa")
-          .eq("activa", true)
-          .order("nombre", {
-            ascending: true,
-          }),
-
-        supabase
-          .from("platos")
-          .select(
-            "id, nombre, categoria, precio, disponible",
-          )
-          .eq("disponible", true)
-          .order("categoria", {
-            ascending: true,
-          })
-          .order("nombre", {
-            ascending: true,
-          }),
-
-        supabase
-          .from("comandas")
-          .select(
-            "id, mesa_id, mesero_id, estado",
-          )
-          .eq(
-            "estado",
-            ESTADO_COMANDA.ABIERTA,
-          )
-          .not("mesa_id", "is", null),
-      ]);
-
-      if (mesasError) {
-        throw new Error(mesasError.message);
-      }
-
-      if (platosError) {
-        throw new Error(platosError.message);
-      }
-
-      if (comandasError) {
-        throw new Error(comandasError.message);
-      }
-
-      const comandasFinales =
-        (comandasData as Comanda[]) ?? [];
-
-      setMesas(
-        ordenarMesas(
-          (mesasData as Mesa[]) ?? [],
-        ),
-      );
-
-      setPlatos(
-        (platosData as Plato[]) ?? [],
-      );
-
-      setComandas(comandasFinales);
-
-      if (comandasFinales.length === 0) {
-        setItemsComandas([]);
+      if (!usuario.rol) {
         return;
       }
 
-      const idsComandas =
-        comandasFinales.map(
-          (comanda) => comanda.id,
-        );
+      const datos = await cargarDatosMesas();
 
-      const {
-        data: itemsData,
-        error: itemsError,
-      } = await supabase
-        .from("comanda_items")
-        .select(
-          "id, comanda_id, plato_id, item_padre_id, opcion_id, cantidad, precio_unitario, estado, observaciones, menu_opcion_id",
-        )
-        .in("comanda_id", idsComandas)
-        .order("creado_en", {
-          ascending: true,
-        });
-
-      if (itemsError) {
-        throw new Error(itemsError.message);
-      }
-
-      setItemsComandas(
-        (itemsData as ComandaItem[]) ?? [],
-      );
+      setMesas(datos.mesas);
+      setPlatos(datos.platos);
+      setComandas(datos.comandas);
+      setItemsComandas(datos.itemsComandas);
     } catch (err) {
       setError(
         err instanceof Error
@@ -319,17 +201,58 @@ export function useMesasPage() {
     } finally {
       setLoading(false);
     }
-  }, [router, cargarRolUsuario]);
+  }, [router]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void cargarDatos();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
+    let cancelado = false;
+  
+    const cargarDatosIniciales = async () => {
+      try {
+        const usuario = await obtenerUsuarioAutenticado();
+  
+        if (cancelado) return;
+  
+        if (!usuario) {
+          router.replace("/login");
+          return;
+        }
+  
+        setRolUsuario(usuario.rol);
+  
+        if (!usuario.rol) {
+          setError("No se pudo obtener el rol del usuario.");
+          return;
+        }
+  
+        const datos = await cargarDatosMesas();
+  
+        if (cancelado) return;
+  
+        setMesas(datos.mesas);
+        setPlatos(datos.platos);
+        setComandas(datos.comandas);
+        setItemsComandas(datos.itemsComandas);
+      } catch (err) {
+        if (cancelado) return;
+  
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No se pudo cargar la información de las mesas.",
+        );
+      } finally {
+        if (!cancelado) {
+          setLoading(false);
+        }
+      }
     };
-  }, [cargarDatos]);
+  
+    void cargarDatosIniciales();
+  
+    return () => {
+      cancelado = true;
+    };
+  }, [router]);
 
   /*
    * ==========================================================
@@ -440,282 +363,6 @@ export function useMesasPage() {
    * CONFIGURACIÓN DE PLATOS
    * ==========================================================
    */
-
-  const cargarConfiguracionPlato = async (
-    plato: Plato,
-  ): Promise<ConfiguracionPlato | null> => {
-    const fecha =
-      obtenerFechaColombia();
-
-    const {
-      data: menu,
-      error: menuError,
-    } = await supabase
-      .from("menus")
-      .select("id, fecha, estado")
-      .eq("fecha", fecha)
-      .eq("estado", "activo")
-      .order("creado_en", {
-        ascending: false,
-      })
-      .limit(1)
-      .maybeSingle();
-
-    if (menuError) {
-      throw new Error(menuError.message);
-    }
-
-    if (!menu) {
-      return null;
-    }
-
-    const {
-      data: menuPlato,
-      error: menuPlatoError,
-    } = await supabase
-      .from("menu_platos")
-      .select(
-        "id, menu_id, plato_id, activo",
-      )
-      .eq("menu_id", menu.id)
-      .eq("plato_id", plato.id)
-      .eq("activo", true)
-      .maybeSingle();
-
-    if (menuPlatoError) {
-      throw new Error(
-        menuPlatoError.message,
-      );
-    }
-
-    if (!menuPlato) {
-      return null;
-    }
-
-    const {
-      data: gruposData,
-      error: gruposError,
-    } = await supabase
-      .from("menu_grupos")
-      .select(
-        "id, menu_plato_id, grupo_id, activo, orden",
-      )
-      .eq(
-        "menu_plato_id",
-        menuPlato.id,
-      )
-      .eq("activo", true)
-      .order("orden", {
-        ascending: true,
-      });
-
-    if (gruposError) {
-      throw new Error(
-        gruposError.message,
-      );
-    }
-
-    const grupos = gruposData ?? [];
-
-    if (grupos.length === 0) {
-      return null;
-    }
-
-    const grupoIds =
-      grupos.map(
-        (grupo) => grupo.grupo_id,
-      );
-
-    const {
-      data: gruposBaseData,
-      error: gruposBaseError,
-    } = await supabase
-      .from("menu_categorias_platos")
-      .select(
-        "id, nombre, obligatorio, orden",
-      )
-      .in("id", grupoIds);
-
-    if (gruposBaseError) {
-      throw new Error(
-        gruposBaseError.message,
-      );
-    }
-
-    const gruposBase =
-      gruposBaseData ?? [];
-
-    const gruposBaseMap =
-      new Map(
-        gruposBase.map(
-          (grupo) => [
-            grupo.id,
-            grupo,
-          ],
-        ),
-      );
-
-    const menuGrupoIds =
-      grupos.map(
-        (grupo) => grupo.id,
-      );
-
-    const {
-      data: menuOpcionesData,
-      error: menuOpcionesError,
-    } = await supabase
-      .from("menu_opciones")
-      .select(
-        "id, menu_grupo_id, opcion_id, activo, orden, agotado",
-      )
-      .in(
-        "menu_grupo_id",
-        menuGrupoIds,
-      )
-      .eq("activo", true)
-      .order("orden", {
-        ascending: true,
-      });
-
-    if (menuOpcionesError) {
-      throw new Error(
-        menuOpcionesError.message,
-      );
-    }
-
-    const menuOpciones =
-      menuOpcionesData ?? [];
-
-    const crearGrupos = (
-      opcionesMap?: Map<
-        string,
-        {
-          id: string;
-          nombre: string;
-          recargo: number;
-        }
-      >,
-    ) =>
-      grupos.map((grupo) => {
-        const grupoBase =
-          gruposBaseMap.get(
-            grupo.grupo_id,
-          );
-
-        const caldosYSopas =
-          esGrupoCaldosYSopas(
-            grupoBase?.nombre ?? "",
-          );
-
-        return {
-          id: grupo.id,
-          grupo_id: grupo.grupo_id,
-          nombre:
-            grupoBase?.nombre ??
-            "Grupo",
-          obligatorio:
-            caldosYSopas
-              ? false
-              : Boolean(
-                  grupoBase?.obligatorio,
-                ),
-          orden: Number(
-            grupo.orden ??
-              grupoBase?.orden ??
-              0,
-          ),
-          opciones:
-            opcionesMap
-              ? menuOpciones
-                  .filter(
-                    (menuOpcion) =>
-                      menuOpcion.menu_grupo_id ===
-                      grupo.id,
-                  )
-                  .map(
-                    (menuOpcion) => {
-                      const opcion =
-                        opcionesMap.get(
-                          menuOpcion.opcion_id,
-                        );
-
-                      return {
-                        menu_opcion_id:
-                          menuOpcion.id,
-                        opcion_id:
-                          menuOpcion.opcion_id,
-                        nombre:
-                          opcion?.nombre ??
-                          "Opción",
-                        recargo:
-                          Number(
-                            opcion?.recargo ??
-                              0,
-                          ),
-                        agotado:
-                          Boolean(
-                            menuOpcion.agotado,
-                          ),
-                        orden:
-                          Number(
-                            menuOpcion.orden ??
-                              0,
-                          ),
-                      };
-                    },
-                  )
-              : [],
-        };
-      });
-
-    if (menuOpciones.length === 0) {
-      return {
-        menu_plato_id:
-          menuPlato.id,
-        plato_id: plato.id,
-        grupos: crearGrupos(),
-      };
-    }
-
-    const opcionIds =
-      menuOpciones.map(
-        (item) => item.opcion_id,
-      );
-
-    const {
-      data: opcionesData,
-      error: opcionesError,
-    } = await supabase
-      .from("opciones_grupo")
-      .select(
-        "id, nombre, recargo",
-      )
-      .in("id", opcionIds);
-
-    if (opcionesError) {
-      throw new Error(
-        opcionesError.message,
-      );
-    }
-
-    const opcionesMap =
-      new Map(
-        (opcionesData ?? []).map(
-          (opcion) => [
-            opcion.id,
-            opcion,
-          ],
-        ),
-      );
-
-    return {
-      menu_plato_id:
-        menuPlato.id,
-      plato_id: plato.id,
-      grupos:
-        crearGrupos(opcionesMap),
-    };
-  };
 
   const abrirConfiguradorPlato =
     async (plato: Plato) => {
@@ -909,6 +556,8 @@ export function useMesasPage() {
       seleccionesConfiguracion,
     ]);
 
+ 
+
   const confirmarConfiguracionPlato =
     () => {
       if (
@@ -920,13 +569,8 @@ export function useMesasPage() {
 
       setError(null);
 
-      for (const grupo of
-        configuracionPlato.grupos) {
-        if (
-          esGrupoCaldosYSopas(
-            grupo.nombre,
-          )
-        ) {
+      for (const grupo of configuracionPlato.grupos) {
+        if (esGrupoCaldosYSopas(grupo.nombre)) {
           continue;
         }
 
@@ -934,16 +578,12 @@ export function useMesasPage() {
           continue;
         }
 
-        const disponibles =
-          grupo.opciones.filter(
-            (opcion) =>
-              !opcion.agotado,
-          );
+        const disponibles = grupo.opciones.filter(
+          (opcion) => !opcion.agotado,
+        );
 
         const seleccionadas =
-          seleccionesConfiguracion[
-            grupo.id
-          ] ?? [];
+          seleccionesConfiguracion[grupo.id] ?? [];
 
         if (
           disponibles.length > 0 &&
@@ -966,35 +606,26 @@ export function useMesasPage() {
         }
       }
 
-      const opciones =
-        Object.values(
-          seleccionesConfiguracion,
-        ).flat();
+      const opciones = Object.values(
+        seleccionesConfiguracion,
+      ).flat();
 
-      const nuevoItem: ItemSeleccionado =
-        {
-          uid: generarUid(),
-          plato_id:
-            platoConfigurando.id,
-          nombre:
-            platoConfigurando.nombre,
-          categoria:
-            platoConfigurando.categoria,
-          precio:
-            precioConfigurando,
-          cantidad: 1,
-          configurado: true,
-          observaciones:
-            observacionesConfiguracion.trim(),
-          opciones,
-        };
+      const nuevoItem: ItemSeleccionado = {
+        uid: generarUid(),
+        plato_id: platoConfigurando.id,
+        nombre: platoConfigurando.nombre,
+        categoria: platoConfigurando.categoria,
+        precio: precioConfigurando,
+        cantidad: 1,
+        configurado: true,
+        observaciones: observacionesConfiguracion.trim(),
+        opciones,
+      };
 
-      setItemsSeleccionados(
-        (actuales) => [
-          ...actuales,
-          nuevoItem,
-        ],
-      );
+      setItemsSeleccionados((actuales) => [
+        ...actuales,
+        nuevoItem,
+      ]);
 
       cerrarConfiguradorPlato();
     };
@@ -1130,262 +761,8 @@ export function useMesasPage() {
 
   const cargarItemsComanda = async (
     comandaId: string,
-  ): Promise<ItemSeleccionado[]> => {
-    const {
-      data,
-      error,
-    } = await supabase
-      .from("comanda_items")
-      .select(
-        "id, comanda_id, plato_id, item_padre_id, opcion_id, cantidad, precio_unitario, estado, observaciones, menu_opcion_id",
-      )
-      .eq("comanda_id", comandaId)
-      .order("creado_en", {
-        ascending: true,
-      });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    const items =
-      (data as ComandaItem[]) ?? [];
-
-    const padres =
-      items.filter(
-        (item) =>
-          item.item_padre_id === null,
-      );
-
-    const hijos =
-      items.filter(
-        (item) =>
-          item.item_padre_id !== null,
-      );
-
-    const opcionIds =
-      hijos
-        .map(
-          (item) =>
-            item.opcion_id,
-        )
-        .filter(
-          (id): id is string =>
-            Boolean(id),
-        );
-
-    const menuOpcionIds =
-      hijos
-        .map(
-          (item) =>
-            item.menu_opcion_id,
-        )
-        .filter(
-          (id): id is string =>
-            Boolean(id),
-        );
-
-    const [
-      opcionesResult,
-      menuOpcionesResult,
-    ] = await Promise.all([
-      opcionIds.length > 0
-        ? supabase
-            .from(
-              "opciones_grupo",
-            )
-            .select(
-              "id, nombre, recargo",
-            )
-            .in(
-              "id",
-              opcionIds,
-            )
-        : Promise.resolve({
-            data: [],
-            error: null,
-          }),
-
-      menuOpcionIds.length > 0
-        ? supabase
-            .from(
-              "menu_opciones",
-            )
-            .select(
-              "id, menu_grupo_id",
-            )
-            .in(
-              "id",
-              menuOpcionIds,
-            )
-        : Promise.resolve({
-            data: [],
-            error: null,
-          }),
-    ]);
-
-    if (opcionesResult.error) {
-      throw new Error(
-        opcionesResult.error.message,
-      );
-    }
-
-    if (menuOpcionesResult.error) {
-      throw new Error(
-        menuOpcionesResult.error.message,
-      );
-    }
-
-    const opcionesData =
-      opcionesResult.data ?? [];
-
-    const menuOpcionesData =
-      menuOpcionesResult.data ?? [];
-
-    const menuGrupoIds =
-      menuOpcionesData.map(
-        (item) =>
-          item.menu_grupo_id,
-      );
-
-    const {
-      data: menuGruposData,
-      error: menuGruposError,
-    } =
-      menuGrupoIds.length > 0
-        ? await supabase
-            .from(
-              "menu_grupos",
-            )
-            .select(
-              "id, grupo_id",
-            )
-            .in(
-              "id",
-              menuGrupoIds,
-            )
-        : {
-            data: [],
-            error: null,
-          };
-
-    if (menuGruposError) {
-      throw new Error(
-        menuGruposError.message,
-      );
-    }
-
-    const grupoIds =
-      menuGruposData.map(
-        (item) =>
-          item.grupo_id,
-      );
-
-    const {
-      data: gruposData,
-      error: gruposError,
-    } =
-      grupoIds.length > 0
-        ? await supabase
-            .from(
-              "menu_categorias_platos",
-            )
-            .select(
-              "id, nombre",
-            )
-            .in(
-              "id",
-              grupoIds,
-            )
-        : {
-            data: [],
-            error: null,
-          };
-
-    if (gruposError) {
-      throw new Error(
-        gruposError.message,
-      );
-    }
-
-    const opcionesMap =
-      new Map(
-        opcionesData.map(
-          (opcion) => [
-            opcion.id,
-            opcion,
-          ],
-        ),
-      );
-
-    const menuOpcionesMap =
-      new Map(
-        menuOpcionesData.map(
-          (item) => [
-            item.id,
-            item,
-          ],
-        ),
-      );
-
-    const menuGruposMap =
-      new Map(
-        menuGruposData.map(
-          (item) => [
-            item.id,
-            item,
-          ],
-        ),
-      );
-
-    const gruposMap =
-      new Map(
-        gruposData.map(
-          (grupo) => [
-            grupo.id,
-            grupo,
-          ],
-        ),
-      );
-
-    return padres.map((item) => {
-      const plato =
-        platos.find(
-          (actual) =>
-            actual.id ===
-            item.plato_id,
-        );
-
-      const opciones =
-        obtenerOpcionesItem(
-          item,
-          hijos,
-          opcionesMap,
-          menuOpcionesMap,
-          menuGruposMap,
-          gruposMap,
-        );
-
-      return {
-        uid: generarUid(),
-        db_id: item.id,
-        plato_id: item.plato_id,
-        nombre:
-          plato?.nombre ?? "Plato",
-        categoria:
-          plato?.categoria ?? "",
-        precio: Number(
-          item.precio_unitario,
-        ),
-        cantidad: item.cantidad,
-        configurado:
-          opciones.length > 0,
-        observaciones:
-          item.observaciones ?? "",
-        opciones,
-      };
-    });
-  };
+  ): Promise<ItemSeleccionado[]> =>
+    cargarItemsComandaService(comandaId, platos);
 
   /*
    * ==========================================================
@@ -1397,7 +774,7 @@ export function useMesasPage() {
     mesa: Mesa,
   ) => {
     if (
-      !esCajero ||
+      !puedeGestionarCaja ||
       !estaOcupada(mesa.id)
     ) {
       return;
@@ -1409,7 +786,7 @@ export function useMesasPage() {
   };
 
   const abrirPagoEfectivo = () => {
-    if (!esCajero || !mesaDetalleCajero) {
+    if (!puedeGestionarCaja || !mesaDetalleCajero) {
       return;
     }
 
@@ -1439,7 +816,7 @@ export function useMesasPage() {
   };
 
   const abrirPagoTransferencia = () => {
-    if (!esCajero || !mesaDetalleCajero) {
+    if (!puedeGestionarCaja || !mesaDetalleCajero) {
       return;
     }
 
@@ -1471,9 +848,7 @@ export function useMesasPage() {
       return;
     }
 
-    const comanda = obtenerComandaMesa(
-      mesaDetalleCajero.id,
-    );
+    const comanda = obtenerComandaMesa(mesaDetalleCajero.id);
 
     if (!comanda) {
       setError("La mesa ya no tiene una comanda abierta.");
@@ -1488,11 +863,9 @@ export function useMesasPage() {
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
@@ -1501,21 +874,10 @@ export function useMesasPage() {
     setPagando(true);
 
     try {
-      const { error: errorPago } = await supabase.rpc(
-        "confirmar_pago_transferencia",
-        {
-          p_comanda_id: comanda.id,
-        },
-      );
-
-      if (errorPago) {
-        throw new Error(errorPago.message);
-      }
-
+      await confirmarPagoTransferenciaService(comanda.id);
       setDialogoPagoTransferencia(false);
       setDialogoDetalleCajero(false);
       setMesaDetalleCajero(null);
-
       await cargarDatos();
     } catch (err) {
       setError(
@@ -1533,9 +895,7 @@ export function useMesasPage() {
       return;
     }
 
-    const comanda = obtenerComandaMesa(
-      mesaDetalleCajero.id,
-    );
+    const comanda = obtenerComandaMesa(mesaDetalleCajero.id);
 
     if (!comanda) {
       setError("La mesa ya no tiene una comanda abierta.");
@@ -1554,17 +914,14 @@ export function useMesasPage() {
 
     if (recibido < totalMesaCajero) {
       setError(
-        "El dinero recibido es insuficiente. Total: " +
-          totalMesaCajero,
+        "El dinero recibido es insuficiente. Total: " + totalMesaCajero,
       );
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
@@ -1573,23 +930,11 @@ export function useMesasPage() {
     setPagando(true);
 
     try {
-      const { error: errorPago } = await supabase.rpc(
-        "confirmar_pago_efectivo",
-        {
-          p_comanda_id: comanda.id,
-          p_monto_recibido: recibido,
-        },
-      );
-
-      if (errorPago) {
-        throw new Error(errorPago.message);
-      }
-
+      await confirmarPagoEfectivoService(comanda.id, recibido);
       setDialogoPagoEfectivo(false);
       setMontoRecibido("");
       setDialogoDetalleCajero(false);
       setMesaDetalleCajero(null);
-
       await cargarDatos();
     } catch (err) {
       setError(
@@ -1638,7 +983,7 @@ export function useMesasPage() {
   ) => {
     setError(null);
 
-    if (esCajero) {
+    if (puedeGestionarCaja) {
       abrirDetalleCajero(mesa);
       return;
     }
@@ -1701,57 +1046,46 @@ export function useMesasPage() {
    */
 
   const abrirCrearMesa = () => {
+    if (!esAdmin) {
+      return;
+    }
+
     setError(null);
     setNumeroMesa("");
     setDialogoCrearMesa(true);
   };
 
   const crearMesa = async () => {
-    const numero =
-      numeroMesa.trim();
+    if (!esAdmin) {
+      return;
+    }
+
+    const numero = numeroMesa.trim();
 
     if (!numero) {
-      setError(
-        "Ingresa el número de la mesa.",
-      );
+      setError("Ingresa el número de la mesa.");
       return;
     }
 
     if (!/^\d+$/.test(numero)) {
-      setError(
-        "El número de mesa debe contener únicamente números.",
-      );
+      setError("El número de mesa debe contener únicamente números.");
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
 
-    const numeroNormalizado =
-      normalizarNumeroMesa(
-        numero,
-      );
-
-    const nombre =
-      `Mesa ${numeroNormalizado}`;
-
-    const yaExiste =
-      mesas.some(
-        (mesa) =>
-          mesa.nombre.toLowerCase() ===
-          nombre.toLowerCase(),
-      );
+    const nombre = `Mesa ${normalizarNumeroMesa(numero)}`;
+    const yaExiste = mesas.some(
+      (mesa) => mesa.nombre.toLowerCase() === nombre.toLowerCase(),
+    );
 
     if (yaExiste) {
-      setError(
-        `La ${nombre} ya existe.`,
-      );
+      setError(`La ${nombre} ya existe.`);
       return;
     }
 
@@ -1759,33 +1093,11 @@ export function useMesasPage() {
     setCreandoMesa(true);
 
     try {
-      const {
-        data,
-        error,
-      } = await supabase
-        .from("mesas")
-        .insert({
-          nombre,
-          activa: true,
-        })
-        .select(
-          "id, nombre, activa",
-        )
-        .single();
+      const mesa = await crearMesaService(numero);
 
-      if (error) {
-        throw new Error(
-          error.message,
-        );
-      }
-
-      setMesas(
-        ordenarMesas([
-          ...mesas,
-          data as Mesa,
-        ]),
+      setMesas((actuales) =>
+        ordenarListaMesas([...actuales, mesa]),
       );
-
       setNumeroMesa("");
       setDialogoCrearMesa(false);
     } catch (err) {
@@ -1816,7 +1128,6 @@ export function useMesasPage() {
     }
 
     setError(null);
-
     setMesaEditando(mesa);
     setNumeroMesa(
       mesa.nombre.replace(
@@ -1828,57 +1139,38 @@ export function useMesasPage() {
   };
 
   const editarMesa = async () => {
-    if (!mesaEditando) {
+    if (!esAdmin || !mesaEditando) {
       return;
     }
 
-    const numero =
-      numeroMesa.trim();
+    const numero = numeroMesa.trim();
 
     if (!numero) {
-      setError(
-        "Ingresa el número de la mesa.",
-      );
+      setError("Ingresa el número de la mesa.");
       return;
     }
 
     if (!/^\d+$/.test(numero)) {
-      setError(
-        "El número de mesa debe contener únicamente números.",
-      );
+      setError("El número de mesa debe contener únicamente números.");
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
 
-    const numeroNormalizado =
-      normalizarNumeroMesa(
-        numero,
-      );
-
-    const nombre =
-      `Mesa ${numeroNormalizado}`;
-
-    const yaExiste =
-      mesas.some(
-        (mesa) =>
-          mesa.id !==
-            mesaEditando.id &&
-          mesa.nombre.toLowerCase() ===
-            nombre.toLowerCase(),
-      );
+    const nombre = `Mesa ${normalizarNumeroMesa(numero)}`;
+    const yaExiste = mesas.some(
+      (mesa) =>
+        mesa.id !== mesaEditando.id &&
+        mesa.nombre.toLowerCase() === nombre.toLowerCase(),
+    );
 
     if (yaExiste) {
-      setError(
-        `La ${nombre} ya existe.`,
-      );
+      setError(`La ${nombre} ya existe.`);
       return;
     }
 
@@ -1886,41 +1178,18 @@ export function useMesasPage() {
     setError(null);
 
     try {
-      const {
-        data,
-        error,
-      } = await supabase
-        .from("mesas")
-        .update({
-          nombre,
-        })
-        .eq(
-          "id",
-          mesaEditando.id,
-        )
-        .select(
-          "id, nombre, activa",
-        )
-        .single();
+      const mesa = await editarMesaService(
+        mesaEditando.id,
+        numero,
+      );
 
-      if (error) {
-        throw new Error(
-          error.message,
-        );
-      }
-
-      setMesas(
-        ordenarMesas(
-          mesas.map(
-            (mesa) =>
-              mesa.id ===
-              mesaEditando.id
-                ? (data as Mesa)
-                : mesa,
+      setMesas((actuales) =>
+        ordenarListaMesas(
+          actuales.map((actual) =>
+            actual.id === mesa.id ? mesa : actual,
           ),
         ),
       );
-
       setDialogoEditarMesa(false);
       setMesaEditando(null);
       setNumeroMesa("");
@@ -1958,20 +1227,17 @@ export function useMesasPage() {
       return;
     }
 
-    const confirmar =
-      window.confirm(
-        `¿Estás seguro de eliminar ${mesa.nombre}?\n\nEsta acción no se puede deshacer.`,
-      );
+    const confirmar = window.confirm(
+      `¿Estás seguro de eliminar ${mesa.nombre}?\n\nEsta acción no se puede deshacer.`,
+    );
 
     if (!confirmar) {
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const usuario = await obtenerUsuarioAutenticado();
 
-    if (!user) {
+    if (!usuario) {
       router.push("/login");
       return;
     }
@@ -1980,24 +1246,10 @@ export function useMesasPage() {
     setError(null);
 
     try {
-      const { error } =
-        await supabase
-          .from("mesas")
-          .delete()
-          .eq("id", mesa.id);
+      await eliminarMesaService(mesa.id);
 
-      if (error) {
-        throw new Error(
-          error.message,
-        );
-      }
-
-      setMesas(
-        (actuales) =>
-          actuales.filter(
-            (actual) =>
-              actual.id !== mesa.id,
-          ),
+      setMesas((actuales) =>
+        actuales.filter((actual) => actual.id !== mesa.id),
       );
     } catch (err) {
       setError(
@@ -2016,690 +1268,13 @@ export function useMesasPage() {
    * ==========================================================
    */
 
-  const confirmarComanda =
-    async () => {
-      if (!mesaSeleccionada) {
-        return;
-      }
-
-      if (
-        itemsSeleccionados.length ===
-        0
-      ) {
-        setError(
-          "Agrega al menos un plato a la comanda.",
-        );
-        return;
-      }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      setError(null);
-      setGuardando(true);
-
-      try {
-        const usuarioId =
-          user.id;
-
-        let comanda =
-          obtenerComandaMesa(
-            mesaSeleccionada.id,
-          );
-
-        if (!comanda) {
-          const {
-            data: nuevaComanda,
-            error:
-              errorComanda,
-          } = await supabase
-            .from("comandas")
-            .insert({
-              canal:
-                CANAL_COMANDA,
-              mesa_id:
-                mesaSeleccionada.id,
-              mesero_id:
-                usuarioId,
-              estado:
-                ESTADO_COMANDA.ABIERTA,
-            })
-            .select(
-              "id, mesa_id, mesero_id, estado",
-            )
-            .single();
-
-          if (
-            errorComanda ||
-            !nuevaComanda
-          ) {
-            if (
-              errorComanda?.code ===
-              "23505"
-            ) {
-              await cargarDatos();
-
-              throw new Error(
-                "Esta mesa acaba de ser ocupada por otro mesero.",
-              );
-            }
-
-            throw new Error(
-              errorComanda?.message ??
-                "No se pudo crear la comanda.",
-            );
-          }
-
-          comanda =
-            nuevaComanda as Comanda;
-
-          const padres =
-            itemsSeleccionados.map(
-              (item) => ({
-                comanda_id:
-                  comanda!.id,
-                plato_id:
-                  item.plato_id,
-                item_padre_id:
-                  null,
-                opcion_id: null,
-                menu_opcion_id:
-                  null,
-                cantidad:
-                  item.cantidad,
-                precio_unitario:
-                  item.precio,
-                estado: "pendiente",
-                observaciones:
-                  item.observaciones
-                    .trim() ||
-                  null,
-              }),
-            );
-
-          const {
-            data: padresInsertados,
-            error:
-              errorPadres,
-          } = await supabase
-            .from(
-              "comanda_items",
-            )
-            .insert(padres)
-            .select(
-              "id, comanda_id, plato_id, item_padre_id, opcion_id, cantidad, precio_unitario, estado, observaciones, menu_opcion_id",
-            );
-
-          if (
-            errorPadres ||
-            !padresInsertados
-          ) {
-            await supabase
-              .from("comandas")
-              .delete()
-              .eq(
-                "id",
-                comanda.id,
-              );
-
-            throw new Error(
-              errorPadres?.message ??
-                "No se pudieron guardar los productos.",
-            );
-          }
-
-          const opciones: Array<{
-            comanda_id: string;
-            plato_id: string;
-            item_padre_id: string;
-            opcion_id: string;
-            menu_opcion_id: string;
-            cantidad: number;
-            precio_unitario: number;
-            estado: string;
-            observaciones: null;
-          }> = [];
-
-          itemsSeleccionados.forEach(
-            (item, index) => {
-              const padre =
-                padresInsertados[
-                  index
-                ];
-
-              if (
-                !padre ||
-                !item.configurado
-              ) {
-                return;
-              }
-
-              item.opciones.forEach(
-                (opcion) => {
-                  opciones.push({
-                    comanda_id:
-                      comanda!.id,
-                    plato_id:
-                      item.plato_id,
-                    item_padre_id:
-                      padre.id,
-                    opcion_id:
-                      opcion.opcion_id,
-                    menu_opcion_id:
-                      opcion.menu_opcion_id,
-                    cantidad:
-                      item.cantidad,
-                    precio_unitario: 0,
-                    estado:
-                      "pendiente",
-                    observaciones:
-                      null,
-                  });
-                },
-              );
-            },
-          );
-
-          if (
-            opciones.length > 0
-          ) {
-            const {
-              error:
-                errorOpciones,
-            } = await supabase
-              .from(
-                "comanda_items",
-              )
-              .insert(
-                opciones,
-              );
-
-            if (errorOpciones) {
-              await supabase
-                .from(
-                  "comanda_items",
-                )
-                .delete()
-                .eq(
-                  "comanda_id",
-                  comanda.id,
-                );
-
-              await supabase
-                .from(
-                  "comandas",
-                )
-                .delete()
-                .eq(
-                  "id",
-                  comanda.id,
-                );
-
-              throw new Error(
-                errorOpciones.message,
-              );
-            }
-          }
-        } else {
-          const {
-            data:
-              itemsActualesData,
-            error:
-              errorItemsActuales,
-          } = await supabase
-            .from(
-              "comanda_items",
-            )
-            .select(
-              "id, comanda_id, plato_id, item_padre_id, opcion_id, cantidad, precio_unitario, estado, observaciones, menu_opcion_id",
-            )
-            .eq(
-              "comanda_id",
-              comanda.id,
-            )
-            .order(
-              "creado_en",
-              {
-                ascending:
-                  true,
-              },
-            );
-
-          if (
-            errorItemsActuales
-          ) {
-            throw new Error(
-              errorItemsActuales.message,
-            );
-          }
-
-          const itemsActuales =
-            (itemsActualesData as ComandaItem[]) ??
-            [];
-
-          const padresActuales =
-            itemsActuales.filter(
-              (item) =>
-                item.item_padre_id ===
-                null,
-            );
-
-          const hijosActuales =
-            itemsActuales.filter(
-              (item) =>
-                item.item_padre_id !==
-                null,
-            );
-
-          const idsExistentes =
-            new Set(
-              itemsSeleccionados
-                .map(
-                  (item) =>
-                    item.db_id,
-                )
-                .filter(
-                  (
-                    id,
-                  ): id is string =>
-                    Boolean(id),
-                ),
-            );
-
-          for (const padre of padresActuales) {
-            if (
-              idsExistentes.has(
-                padre.id,
-              )
-            ) {
-              continue;
-            }
-
-            const {
-              error:
-                errorHijos,
-            } = await supabase
-              .from(
-                "comanda_items",
-              )
-              .delete()
-              .eq(
-                "item_padre_id",
-                padre.id,
-              );
-
-            if (errorHijos) {
-              throw new Error(
-                errorHijos.message,
-              );
-            }
-
-            const {
-              error:
-                errorPadre,
-            } = await supabase
-              .from(
-                "comanda_items",
-              )
-              .delete()
-              .eq(
-                "id",
-                padre.id,
-              );
-
-            if (errorPadre) {
-              throw new Error(
-                errorPadre.message,
-              );
-            }
-          }
-
-          for (const item of itemsSeleccionados) {
-            if (item.db_id) {
-              const padreActual =
-                padresActuales.find(
-                  (padre) =>
-                    padre.id ===
-                    item.db_id,
-                );
-
-              if (!padreActual) {
-                continue;
-              }
-
-              const cantidadCambio =
-                Number(
-                  padreActual.cantidad,
-                ) !==
-                Number(
-                  item.cantidad,
-                );
-
-              const precioCambio =
-                Number(
-                  padreActual.precio_unitario,
-                ) !==
-                Number(item.precio);
-
-              const observacionesActuales =
-                padreActual.observaciones?.trim() ??
-                "";
-
-              const observacionesNuevas =
-                item.observaciones.trim();
-
-              const observacionesCambio =
-                observacionesActuales !==
-                observacionesNuevas;
-
-              if (
-                cantidadCambio ||
-                precioCambio ||
-                observacionesCambio
-              ) {
-                const {
-                  error:
-                    errorUpdate,
-                } = await supabase
-                  .from(
-                    "comanda_items",
-                  )
-                  .update({
-                    cantidad:
-                      item.cantidad,
-                    precio_unitario:
-                      item.precio,
-                    observaciones:
-                      observacionesNuevas ||
-                      null,
-                  })
-                  .eq(
-                    "id",
-                    padreActual.id,
-                  );
-
-                if (errorUpdate) {
-                  throw new Error(
-                    errorUpdate.message,
-                  );
-                }
-              }
-
-              if (
-                item.configurado
-              ) {
-                const hijosDelPadre =
-                  hijosActuales.filter(
-                    (hijo) =>
-                      hijo.item_padre_id ===
-                      padreActual.id,
-                  );
-
-                const actuales =
-                  new Set(
-                    hijosDelPadre.map(
-                      (hijo) =>
-                        `${hijo.opcion_id}|${hijo.menu_opcion_id}`,
-                    ),
-                  );
-
-                const nuevas =
-                  new Set(
-                    item.opciones.map(
-                      (opcion) =>
-                        `${opcion.opcion_id}|${opcion.menu_opcion_id}`,
-                    ),
-                  );
-
-                const cambiaron =
-                  actuales.size !==
-                    nuevas.size ||
-                  [...actuales].some(
-                    (opcion) =>
-                      !nuevas.has(
-                        opcion,
-                      ),
-                  );
-
-                if (cambiaron) {
-                  const {
-                    error:
-                      errorDelete,
-                  } = await supabase
-                    .from(
-                      "comanda_items",
-                    )
-                    .delete()
-                    .eq(
-                      "item_padre_id",
-                      padreActual.id,
-                    );
-
-                  if (errorDelete) {
-                    throw new Error(
-                      errorDelete.message,
-                    );
-                  }
-
-                  const nuevasOpciones =
-                    item.opciones.map(
-                      (opcion) => ({
-                        comanda_id:
-                          comanda!.id,
-                        plato_id:
-                          item.plato_id,
-                        item_padre_id:
-                          padreActual.id,
-                        opcion_id:
-                          opcion.opcion_id,
-                        menu_opcion_id:
-                          opcion.menu_opcion_id,
-                        cantidad:
-                          item.cantidad,
-                        precio_unitario:
-                          0,
-                        estado:
-                          "pendiente",
-                        observaciones:
-                          null,
-                      }),
-                    );
-
-                  if (
-                    nuevasOpciones.length >
-                    0
-                  ) {
-                    const {
-                      error:
-                        errorInsert,
-                    } =
-                      await supabase
-                        .from(
-                          "comanda_items",
-                        )
-                        .insert(
-                          nuevasOpciones,
-                        );
-
-                    if (errorInsert) {
-                      throw new Error(
-                        errorInsert.message,
-                      );
-                    }
-                  }
-                } else if (
-                  cantidadCambio
-                ) {
-                  for (const hijo of hijosDelPadre) {
-                    const {
-                      error:
-                        errorHijo,
-                    } =
-                      await supabase
-                        .from(
-                          "comanda_items",
-                        )
-                        .update({
-                          cantidad:
-                            item.cantidad,
-                        })
-                        .eq(
-                          "id",
-                          hijo.id,
-                        );
-
-                    if (errorHijo) {
-                      throw new Error(
-                        errorHijo.message,
-                      );
-                    }
-                  }
-                }
-              }
-
-              continue;
-            }
-
-            const {
-              data: nuevoPadre,
-              error:
-                errorNuevoPadre,
-            } = await supabase
-              .from(
-                "comanda_items",
-              )
-              .insert({
-                comanda_id:
-                  comanda.id,
-                plato_id:
-                  item.plato_id,
-                item_padre_id:
-                  null,
-                opcion_id: null,
-                menu_opcion_id:
-                  null,
-                cantidad:
-                  item.cantidad,
-                precio_unitario:
-                  item.precio,
-                estado:
-                  "pendiente",
-                observaciones:
-                  item.observaciones
-                    .trim() ||
-                  null,
-              })
-              .select(
-                "id, comanda_id, plato_id, item_padre_id, opcion_id, cantidad, precio_unitario, estado, observaciones, menu_opcion_id",
-              )
-              .single();
-
-            if (
-              errorNuevoPadre ||
-              !nuevoPadre
-            ) {
-              throw new Error(
-                errorNuevoPadre?.message ??
-                  "No se pudo agregar el nuevo producto.",
-              );
-            }
-
-            if (
-              item.configurado &&
-              item.opciones.length >
-                0
-            ) {
-              const opcionesNuevas =
-                item.opciones.map(
-                  (opcion) => ({
-                    comanda_id:
-                      comanda!.id,
-                    plato_id:
-                      item.plato_id,
-                    item_padre_id:
-                      nuevoPadre.id,
-                    opcion_id:
-                      opcion.opcion_id,
-                    menu_opcion_id:
-                      opcion.menu_opcion_id,
-                    cantidad:
-                      item.cantidad,
-                    precio_unitario:
-                      0,
-                    estado:
-                      "pendiente",
-                    observaciones:
-                      null,
-                  }),
-                );
-
-              const {
-                error:
-                  errorOpciones,
-              } = await supabase
-                .from(
-                  "comanda_items",
-                )
-                .insert(
-                  opcionesNuevas,
-                );
-
-              if (errorOpciones) {
-                throw new Error(
-                  errorOpciones.message,
-                );
-              }
-            }
-          }
-        }
-
-        await cargarDatos();
-
-        cerrarDialogo();
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Ocurrió un error al confirmar la comanda.",
-        );
-      } finally {
-        setGuardando(false);
-      }
-    };
-
-  /*
-   * ==========================================================
-   * LIBERAR MESA
-   * ==========================================================
-   */
-
-  const liberarMesa = async () => {
+  const confirmarComanda = async () => {
     if (!mesaSeleccionada) {
       return;
     }
 
-    const comanda =
-      obtenerComandaMesa(
-        mesaSeleccionada.id,
-      );
-
-    if (!comanda) {
-      cerrarDialogo();
-      return;
-    }
-
-    const confirmar =
-      window.confirm(
-        `¿Liberar ${mesaSeleccionada.nombre}?\n\nLa comanda actual se eliminará junto con sus productos y la mesa quedará libre.`,
-      );
-
-    if (!confirmar) {
+    if (itemsSeleccionados.length === 0) {
+      setError("Agrega al menos un plato a la comanda.");
       return;
     }
 
@@ -2712,62 +1287,82 @@ export function useMesasPage() {
       return;
     }
 
+    setError(null);
+    setGuardando(true);
+
+    try {
+      const resultado = await confirmarComandaService({
+        mesaId: mesaSeleccionada.id,
+        usuarioId: user.id,
+        itemsSeleccionados,
+        comandaExistente: obtenerComandaMesa(mesaSeleccionada.id),
+      });
+
+      if (resultado === "mesa_ocupada") {
+        await cargarDatos();
+        throw new Error(
+          "Esta mesa acaba de ser ocupada por otro mesero.",
+        );
+      }
+
+      await cargarDatos();
+      cerrarDialogo();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Ocurrió un error al confirmar la comanda.",
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  /*
+   * ==========================================================
+   * LIBERAR MESA
+   * ==========================================================
+   */
+
+  const liberarMesa = async () => {
+    if (!mesaSeleccionada) {
+      return;
+    }
+
+    const comanda = obtenerComandaMesa(mesaSeleccionada.id);
+
+    if (!comanda) {
+      cerrarDialogo();
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `¿Liberar ${mesaSeleccionada.nombre}?\n\nLa comanda actual se eliminará junto con sus productos y la mesa quedará libre.`,
+    );
+
+    if (!confirmar) {
+      return;
+    }
+
+    const usuario = await obtenerUsuarioAutenticado();
+
+    if (!usuario) {
+      router.push("/login");
+      return;
+    }
+
     setGuardando(true);
     setError(null);
 
     try {
-      const {
-        error: errorItems,
-      } = await supabase
-        .from(
-          "comanda_items",
-        )
-        .delete()
-        .eq(
-          "comanda_id",
-          comanda.id,
-        );
+      await liberarComanda(comanda.id);
 
-      if (errorItems) {
-        throw new Error(
-          errorItems.message,
-        );
-      }
-
-      const {
-        error: errorComanda,
-      } = await supabase
-        .from("comandas")
-        .delete()
-        .eq(
-          "id",
-          comanda.id,
-        );
-
-      if (errorComanda) {
-        throw new Error(
-          errorComanda.message,
-        );
-      }
-
-      setComandas(
-        (actuales) =>
-          actuales.filter(
-            (actual) =>
-              actual.id !==
-              comanda.id,
-          ),
+      setComandas((actuales) =>
+        actuales.filter((actual) => actual.id !== comanda.id),
       );
-
-      setItemsComandas(
-        (actuales) =>
-          actuales.filter(
-            (item) =>
-              item.comanda_id !==
-              comanda.id,
-          ),
+      setItemsComandas((actuales) =>
+        actuales.filter((item) => item.comanda_id !== comanda.id),
       );
-
       cerrarDialogo();
     } catch (err) {
       setError(
@@ -2778,7 +1373,6 @@ export function useMesasPage() {
     } finally {
       setGuardando(false);
     }
-
   };
 
   return {
@@ -2798,6 +1392,7 @@ export function useMesasPage() {
     rolUsuario,
     esAdmin,
     esCajero,
+    puedeGestionarCaja,
 
     mesaSeleccionada,
     dialogoAbierto,
@@ -2865,7 +1460,7 @@ export function useMesasPage() {
     eliminarPlatoSeleccionado,
 
     seleccionarOpcion,
-    confirmarConfiguracionPlato,
+
     cerrarConfiguradorPlato,
 
     setBusqueda,
@@ -2877,7 +1472,7 @@ export function useMesasPage() {
     setMesaEditando,
     
     obtenerItemsMesa,
-
+    confirmarConfiguracionPlato,
     cargarDatos,
   };
 }
