@@ -17,11 +17,7 @@ import {
   confirmarComanda as confirmarComandaService,
 } from "../services/comandas";
 
-import {
-  CANAL_COMANDA,
-  CATEGORIAS,
-  ESTADO_COMANDA,
-} from "../constants/constants";
+import { CATEGORIAS } from "../constants/constants";
 
 import type {
   Comanda,
