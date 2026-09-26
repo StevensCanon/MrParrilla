@@ -310,7 +310,13 @@ export function useMesasPage() {
   }, [router, cargarRolUsuario]);
 
   useEffect(() => {
-    void cargarDatos();
+    const timeoutId = window.setTimeout(() => {
+      void cargarDatos();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [cargarDatos]);
 
   /*
