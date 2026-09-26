@@ -142,22 +142,6 @@ export function useMesasPage() {
    * ==========================================================
    */
 
-  const cargarRolUsuario = useCallback(async () => {
-    const rol = await obtenerRolUsuario();
-
-    if (!rol) {
-      setRolUsuario(null);
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push("/login");
-      }
-      return;
-    }
-
-    setRolUsuario(rol);
-  }, [router]);
-
   /*
    * ==========================================================
    * CARGAR DATOS
