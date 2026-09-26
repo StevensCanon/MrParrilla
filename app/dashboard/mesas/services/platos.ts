@@ -1,8 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import type {
   ConfiguracionPlato,
-  GrupoMenu,
-  OpcionMenu,
   Plato,
 } from "../types/types";
 import {
@@ -10,9 +8,9 @@ import {
   obtenerFechaColombia,
 } from "../utils/utils";
 
-export async function cargarConfiguracionPlato (
-    plato: Plato,
-  ): Promise<ConfiguracionPlato | null> => {
+export async function cargarConfiguracionPlato(
+  plato: Plato,
+): Promise<ConfiguracionPlato | null> {
     const fecha =
       obtenerFechaColombia();
 
@@ -284,4 +282,4 @@ export async function cargarConfiguracionPlato (
       grupos:
         crearGrupos(opcionesMap),
     };
-  };
+}
