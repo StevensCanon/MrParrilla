@@ -59,6 +59,9 @@ export function useMesasPage() {
   
   const router = useRouter();
 
+
+
+
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [comandas, setComandas] = useState<Comanda[]>([]);
@@ -100,6 +103,8 @@ export function useMesasPage() {
   const [montoRecibido, setMontoRecibido] =
     useState("");
 
+
+    
   const [pagando, setPagando] = useState(false);
 
   const [itemsSeleccionados, setItemsSeleccionados] =
@@ -144,9 +149,13 @@ export function useMesasPage() {
     setCargandoConfiguracion,
   ] = useState(false);
 
+
+
+
   const esAdmin = rolUsuario === "admin";
   const esCajero = rolUsuario === "cajero";
   const puedeGestionarCaja = esAdmin || esCajero;
+
 
   /*
    * ==========================================================

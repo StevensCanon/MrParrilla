@@ -11,7 +11,7 @@ import { GiFireBowl } from "react-icons/gi";
 import { useState, useEffect } from "react";
 
 import { Users, Wallet, LogOut, Settings } from "lucide-react";
-
+import { FaCashRegister } from "react-icons/fa";
 import {
   SidebarProvider,
   Sidebar,
@@ -48,6 +48,11 @@ const menuPrincipal = [
     title: "Menus",
     href: "/dashboard/menus",
     icon: GiFireBowl,
+  },
+  {
+    title: "Caja",
+    href: "/dashboard/caja",
+    icon: FaCashRegister,
   },
   {
     title: "Mesas",
