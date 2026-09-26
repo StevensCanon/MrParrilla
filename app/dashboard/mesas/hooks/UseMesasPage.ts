@@ -10,7 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import { supabase } from "@/lib/supabaseClient";
-import { obtenerRolUsuario } from "../services/auth";
+import { obtenerUsuarioAutenticado } from "../services/auth";
 import { cargarDatosMesas } from "../services/mesasData";
 import { cargarConfiguracionPlato } from "../services/platos";
 
@@ -150,25 +150,20 @@ export function useMesasPage() {
 
   const cargarDatos = useCallback(async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const usuario = await obtenerUsuarioAutenticado();
 
-      if (!user) {
+      if (!usuario) {
         router.push("/login");
         return;
       }
 
       setLoading(true);
       setError(null);
+      setRolUsuario(usuario.rol);
 
-      const rol = await obtenerRolUsuario();
-      if (!rol) {
-        setRolUsuario(null);
+      if (!usuario.rol) {
         return;
       }
-
-      setRolUsuario(rol);
 
       const datos = await cargarDatosMesas();
 
