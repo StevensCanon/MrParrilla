@@ -50,7 +50,6 @@ import {
   generarUid,
   mesaEstaOcupada,
   normalizarNumeroMesa,
-  esGrupoCaldosYSopas,
 } from "../utils/utils";
 
 export function useMesasPage() {
@@ -916,11 +915,21 @@ export function useMesasPage() {
    * ==========================================================
    */
 
+  const abrirCrearMesa = () => {
+    if (!esAdmin) {
+      return;
+    }
 
-<<<<<<< HEAD
+    setError(null);
+    setNumeroMesa("");
+    setDialogoCrearMesa(true);
+  };
 
-=======
   const crearMesa = async () => {
+    if (!esAdmin) {
+      return;
+    }
+
     const numero = numeroMesa.trim();
 
     if (!numero) {
@@ -928,7 +937,7 @@ export function useMesasPage() {
       return;
     }
 
-    if (!/^\d+$/.test(numero)) {
+    if (!/^\\d+$/.test(numero)) {
       setError("El número de mesa debe contener únicamente números.");
       return;
     }
@@ -971,7 +980,6 @@ export function useMesasPage() {
       setCreandoMesa(false);
     }
   };
->>>>>>> e07b5e5ac7141bb6e1549433a8bb7e23a4444f9b
 
   /*
    * ==========================================================
@@ -990,20 +998,21 @@ export function useMesasPage() {
     }
 
     setError(null);
-
     setMesaEditando(mesa);
     setNumeroMesa(
       mesa.nombre.replace(
-        /^mesa\s*/i,
+        /^mesa\\s*/i,
         "",
       ),
     );
     setDialogoEditarMesa(true);
   };
 
+  const editarMesa = async () => {
+    if (!esAdmin || !mesaEditando) {
+      return;
+    }
 
-<<<<<<< HEAD
-=======
     const numero = numeroMesa.trim();
 
     if (!numero) {
@@ -1011,7 +1020,7 @@ export function useMesasPage() {
       return;
     }
 
-    if (!/^\d+$/.test(numero)) {
+    if (!/^\\d+$/.test(numero)) {
       setError("El número de mesa debe contener únicamente números.");
       return;
     }
@@ -1064,7 +1073,6 @@ export function useMesasPage() {
       setGuardando(false);
     }
   };
->>>>>>> e07b5e5ac7141bb6e1549433a8bb7e23a4444f9b
 
   /*
    * ==========================================================
