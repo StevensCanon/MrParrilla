@@ -8,7 +8,12 @@ const ROLES_VALIDOS: RolUsuario[] = [
   "cajero",
 ];
 
-export async function obtenerRolUsuario(): Promise<RolUsuario | null> {
+export type UsuarioAutenticado = {
+  id: string;
+  rol: RolUsuario | null;
+};
+
+export async function obtenerUsuarioAutenticado(): Promise<UsuarioAutenticado | null> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -20,14 +25,17 @@ export async function obtenerRolUsuario(): Promise<RolUsuario | null> {
   const { data: rol, error } = await supabase.rpc("rol_actual");
 
   if (error) {
-    return null;
+    return { id: user.id, rol: null };
   }
 
   const rolNormalizado = String(rol ?? "")
     .trim()
     .toLowerCase();
 
-  return ROLES_VALIDOS.includes(rolNormalizado as RolUsuario)
-    ? (rolNormalizado as RolUsuario)
-    : null;
+  return {
+    id: user.id,
+    rol: ROLES_VALIDOS.includes(rolNormalizado as RolUsuario)
+      ? (rolNormalizado as RolUsuario)
+      : null,
+  };
 }
