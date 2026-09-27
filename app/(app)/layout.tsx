@@ -30,18 +30,18 @@ type RolUsuario = "admin" | "mesero" | "cajero" | "cocina";
 
 const menuPrincipal = [
   { title: "Dashboard", href: "/dashboard", icon: BiSolidDashboard },
-  { title: "Platos", href: "/dashboard/platos", icon: GiForkKnifeSpoon },
-  { title: "Menús", href: "/dashboard/menus", icon: GiFireBowl },
-  { title: "Caja", href: "/dashboard/caja", icon: FaCashRegister },
-  { title: "Mesas", href: "/dashboard/mesas", icon: MdTableBar },
-  { title: "Pedidos", href: "/dashboard/pedidos", icon: IoChatboxEllipses },
-  { title: "Cocina", href: "/dashboard/cocina", icon: FaKitchenSet },
-  { title: "Inventario", href: "/dashboard/inventario", icon: IoIosListBox },
+  { title: "Platos", href: "/platos", icon: GiForkKnifeSpoon },
+  { title: "Menús", href: "/menus", icon: GiFireBowl },
+  { title: "Caja", href: "/caja", icon: FaCashRegister },
+  { title: "Mesas", href: "/mesas", icon: MdTableBar },
+  { title: "Pedidos", href: "/pedidos", icon: IoChatboxEllipses },
+  { title: "Cocina", href: "/cocina", icon: FaKitchenSet },
+  { title: "Inventario", href: "/inventario", icon: IoIosListBox },
 ];
 
 const menuGestion = [
-  { title: "Clientes", href: "/dashboard/clientes", icon: Users },
-  { title: "Finanzas", href: "/dashboard/finanzas", icon: Wallet },
+  { title: "Clientes", href: "/clientes", icon: Users },
+  { title: "Finanzas", href: "/finanzas", icon: Wallet },
 ];
 
 export default function SidebarLayout({ children }: { children: React.ReactNode }) {
@@ -164,7 +164,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
             <SidebarMenuItem>
               <SidebarMenuButton
                 tooltip="Configuración"
-                onClick={() => router.push("/dashboard/configuracion")}
+                onClick={() => router.push("/configuracion")}
               >
                 <Settings size={17} />
                 <span>Configuración</span>
