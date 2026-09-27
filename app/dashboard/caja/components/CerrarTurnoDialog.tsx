@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Check,
   Loader2,
@@ -44,12 +44,6 @@ export function CerrarTurnoDialog({
 }: CerrarTurnoDialogProps) {
   const [efectivoContado, setEfectivoContado] = useState("");
 
-  useEffect(() => {
-    if (!open) {
-      setEfectivoContado("");
-    }
-  }, [open]);
-
   const valorContado = Number(efectivoContado);
 
   const esValido =
@@ -65,6 +59,15 @@ export function CerrarTurnoDialog({
     return valorContado - efectivoEsperado;
   }, [esValido, valorContado, efectivoEsperado]);
 
+  const handleClose = () => {
+    if (cerrando) {
+      return;
+    }
+
+    setEfectivoContado("");
+    onClose();
+  };
+
   const handleConfirmar = () => {
     if (!esValido || cerrando) {
       return;
@@ -77,8 +80,8 @@ export function CerrarTurnoDialog({
     <Dialog
       open={open}
       onOpenChange={(value) => {
-        if (!value && !cerrando) {
-          onClose();
+        if (!value) {
+          handleClose();
         }
       }}
     >
@@ -200,7 +203,7 @@ export function CerrarTurnoDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={cerrando}
             className="cursor-pointer border-[#D8D1C5]"
           >

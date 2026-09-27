@@ -58,13 +58,12 @@ export function DashboardStats({
   egresos,
   balance,
   ordenes,
-  ticketPromedio,
+
 }: {
   ingresos: number;
   egresos: number;
   balance: number;
   ordenes: number;
-  ticketPromedio: number;
 }) {
   return (
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -95,12 +94,7 @@ export function DashboardStats({
         desc="Comandas cerradas"
         icon={ClipboardList}
       />
-      <Item
-        title="Ticket promedio"
-        value={money(ticketPromedio)}
-        desc="Venta promedio por orden"
-        icon={Receipt}
-      />
+     
     </section>
   );
 }

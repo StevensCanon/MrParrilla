@@ -76,7 +76,6 @@ export default function DashboardPage() {
         egresos={dashboard.stats.egresos}
         balance={dashboard.stats.balance}
         ordenes={dashboard.stats.ordenes}
-        ticketPromedio={dashboard.stats.ticketPromedio}
       />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">

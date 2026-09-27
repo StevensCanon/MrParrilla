@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Banknote, Check, Loader2, X } from "lucide-react";
 
 import {
@@ -38,18 +37,21 @@ export function AbrirTurnoDialog({
 }: AbrirTurnoDialogProps) {
   const [fondoInicial, setFondoInicial] = useState("");
 
-  useEffect(() => {
-    if (!open) {
-      setFondoInicial("");
-    }
-  }, [open]);
-
   const valor = Number(fondoInicial);
 
   const esValido =
     Number.isFinite(valor) &&
     valor >= 0 &&
     fondoInicial.trim() !== "";
+
+  const handleClose = () => {
+    if (abriendo) {
+      return;
+    }
+
+    setFondoInicial("");
+    onClose();
+  };
 
   const handleConfirmar = () => {
     if (!esValido || abriendo) {
@@ -63,8 +65,8 @@ export function AbrirTurnoDialog({
     <Dialog
       open={open}
       onOpenChange={(value) => {
-        if (!value && !abriendo) {
-          onClose();
+        if (!value) {
+          handleClose();
         }
       }}
     >
@@ -114,9 +116,7 @@ export function AbrirTurnoDialog({
               step="1"
               inputMode="numeric"
               value={fondoInicial}
-              onChange={(event) =>
-                setFondoInicial(event.target.value)
-              }
+              onChange={(event) => setFondoInicial(event.target.value)}
               placeholder="Ej. 50000"
               disabled={abriendo}
               autoFocus
@@ -133,7 +133,7 @@ export function AbrirTurnoDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={abriendo}
             className="cursor-pointer"
           >
@@ -164,4 +164,3 @@ export function AbrirTurnoDialog({
     </Dialog>
   );
 }
-
