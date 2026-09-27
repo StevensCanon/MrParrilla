@@ -21,7 +21,7 @@ export async function cargarDatosDashboard() {
   const desde = new Date();
   desde.setDate(desde.getDate() - 13);
   desde.setHours(0, 0, 0, 0);
-  const desdeStr = desde.toISOString().slice(0, 10);
+  const desdeStr = desde.toISOString();
 
   const [productosRes, transaccionesRes] = await Promise.all([
     supabase.from("productos").select("id, nombre, stock, costo, stock_minimo"),
@@ -34,9 +34,43 @@ export async function cargarDatosDashboard() {
 
   if (productosRes.error) throw new Error(productosRes.error.message);
   if (transaccionesRes.error) throw new Error(transaccionesRes.error.message);
+  if (comandasRes.error) throw new Error(comandasRes.error.message);
+  if (pagosRes.error) throw new Error(pagosRes.error.message);
+
+  const comandas = (comandasRes.data as ComandaDashboard[]) ?? [];
+  const idsComandas = comandas.map((comanda) => comanda.id);
+
+  let items: ComandaItemDashboard[] = [];
+
+  if (idsComandas.length > 0) {
+    const { data, error } = await supabase
+      .from("comanda_items")
+      .select("id, comanda_id, plato_id, item_padre_id, cantidad, precio_unitario")
+      .in("comanda_id", idsComandas);
+
+    if (error) throw new Error(error.message);
+    items = (data as ComandaItemDashboard[]) ?? [];
+  }
+
+  const idsPlatos = [...new Set(items.map((item) => item.plato_id))];
+  let platos: PlatoDashboard[] = [];
+
+  if (idsPlatos.length > 0) {
+    const { data, error } = await supabase
+      .from("platos")
+      .select("id, nombre, categoria")
+      .in("id", idsPlatos);
+
+    if (error) throw new Error(error.message);
+    platos = (data as PlatoDashboard[]) ?? [];
+  }
 
   return {
     productos: (productosRes.data as ProductoDashboard[]) ?? [],
     transacciones: (transaccionesRes.data as TransaccionDashboard[]) ?? [],
+    comandas,
+    pagos: (pagosRes.data as PagoDashboard[]) ?? [],
+    items,
+    platos,
   };
 }
