@@ -1,0 +1,7 @@
+import { AlertTriangle,Package } from "lucide-react";
+import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import type { ProductoDashboard } from "../../services/dashboard";
+export function InventarioAlertas({productos}:{productos:ProductoDashboard[]}){
+ return <Card className="border-[#E8E2D8] bg-white shadow-none"><CardHeader className="border-b border-[#F0ECE5]"><div className="flex justify-between"><div><CardTitle className="text-base">Inventario</CardTitle><p className="mt-1 text-xs text-[#918A7E]">Productos que requieren atención</p></div><div className="flex size-9 items-center justify-center rounded-lg bg-[#FBF0DE] text-[#B5842C]">{productos.length?<AlertTriangle size={17}/>:<Package size={17}/>}</div></div></CardHeader><CardContent className="p-0"><div className="flex justify-between px-5 py-4"><span className="text-sm text-[#6F695E]">Stock bajo</span><Badge variant="secondary">{productos.length}</Badge></div>{productos.length===0?<div className="border-t px-5 py-10 text-center text-sm text-[#6F695E]">Inventario en orden</div>:<div className="border-t">{productos.slice(0,6).map(p=><div key={p.id} className="flex justify-between border-b px-5 py-3.5 last:border-0"><span className="truncate text-sm">{p.nombre}</span><span className="rounded-lg bg-[#F9EAE6] px-2.5 py-1 text-xs font-semibold text-[#A3402A]">{p.stock}</span></div>)}</div>}</CardContent></Card>;
+}
