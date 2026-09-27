@@ -3,14 +3,17 @@
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import type { HoraPico } from "../../hooks/useDashboard";
+import type { HoraPico } from "../hooks/useDashboard";
 
 const config = { ordenes: { label: "Órdenes", color: "#3D8060" } } satisfies ChartConfig;
 
 export function HorasPicoChart({ data }: { data: HoraPico[] }) {
   return (
-    <Card className="border-[#E8E2D8] bg-white shadow-none">
-      <CardHeader className="border-b border-[#F0ECE5] px-5 py-5"><CardTitle className="text-base">Horas pico</CardTitle><p className="text-xs text-[#918A7E]">Órdenes iniciadas por hora</p></CardHeader>
+    <Card className="overflow-hidden border-[#E7E1D7] bg-white shadow-sm">
+      <CardHeader className="border-b border-[#F0ECE5] px-5 py-4">
+        <CardTitle className="text-base">Horas pico</CardTitle>
+        <p className="mt-1 text-xs text-[#918A7E]">Órdenes iniciadas por hora</p>
+      </CardHeader>
       <CardContent className="px-2 pb-4 pt-5 sm:px-5">
         {data.length === 0 ? <p className="py-20 text-center text-sm text-[#9B9488]">Sin datos de operación.</p> : (
           <ChartContainer config={config} className="h-[300px] w-full">

@@ -9,54 +9,33 @@ import {
   type TransaccionDashboard,
 } from "../services/dashboard";
 
-export type DiaFinanciero = {
-  key: string;
-  label: string;
-  ingreso: number;
-  egreso: number;
-};
+export type DiaFinanciero = { key: string; label: string; ingreso: number; egreso: number };
 export type CategoriaVenta = { categoria: string; monto: number };
-export type PlatoVendido = {
-  nombre: string;
-  categoria: string;
-  cantidad: number;
-  monto: number;
-};
-export type DiaOperativo = {
-  key: string;
-  label: string;
-  ordenes: number;
-  ventas: number;
-};
+export type PlatoVendido = { nombre: string; categoria: string; cantidad: number; monto: number };
+export type DiaOperativo = { key: string; label: string; ordenes: number; ventas: number };
 export type HoraPico = { hora: string; ordenes: number };
 export type MetodoPago = { metodo: string; monto: number; cantidad: number };
 export type CanalVenta = { canal: string; monto: number; ordenes: number };
+export type MovimientoDashboard = {
+  id: string;
+  tipo: "ingreso" | "egreso";
+  monto: number;
+  categoria: string;
+  descripcion: string | null;
+  fecha: string;
+};
 
 const claveFecha = (fecha: string) => fecha.slice(0, 10);
 const claveLocal = (fecha: Date) =>
-  [
-    fecha.getFullYear(),
-    String(fecha.getMonth() + 1).padStart(2, "0"),
-    String(fecha.getDate()).padStart(2, "0"),
-  ].join("-");
-const etiquetaDia = (fecha: Date) =>
-  fecha.toLocaleDateString("es-CO", { day: "2-digit", month: "short" });
-const normalizarMetodo = (metodo: string) =>
-  metodo.charAt(0).toUpperCase() + metodo.slice(1);
+  [fecha.getFullYear(), String(fecha.getMonth() + 1).padStart(2, "0"), String(fecha.getDate()).padStart(2, "0")].join("-");
+const etiquetaDia = (fecha: Date) => fecha.toLocaleDateString("es-CO", { day: "2-digit", month: "short" });
+const normalizarMetodo = (metodo: string) => metodo.charAt(0).toUpperCase() + metodo.slice(1);
 const normalizarCanal = (canal: string) =>
-  (
-    ({
-      restaurante: "Restaurante",
-      domicilio: "Domicilio",
-      whatsapp: "WhatsApp",
-    }) as Record<string, string>
-  )[canal] ?? normalizarMetodo(canal);
+  ({ restaurante: "Restaurante", domicilio: "Domicilio", whatsapp: "WhatsApp" } as Record<string, string>)[canal] ?? normalizarMetodo(canal);
 
 export function useDashboard() {
   const [productos, setProductos] = useState<ProductoDashboard[]>([]);
-  const [transacciones, setTransacciones] = useState<TransaccionDashboard[]>(
-    [],
-  );
+  const [transacciones, setTransacciones] = useState<TransaccionDashboard[]>([]);
   const [comandas, setComandas] = useState<ComandaDashboard[]>([]);
   const [pagos, setPagos] = useState<PagoDashboard[]>([]);
   const [items, setItems] = useState<ComandaItemDashboard[]>([]);
@@ -78,36 +57,21 @@ export function useDashboard() {
         setPlatos(datos.platos);
         setError(null);
       } catch (err) {
-        if (!cancelado)
-          setError(
-            err instanceof Error
-              ? err.message
-              : "No se pudieron cargar los datos del dashboard.",
-          );
+        if (!cancelado) {
+          setError(err instanceof Error ? err.message : "No se pudieron cargar los datos del dashboard.");
+        }
       } finally {
         if (!cancelado) setLoading(false);
       }
     };
     void cargar();
-    return () => {
-      cancelado = true;
-    };
+    return () => { cancelado = true; };
   }, []);
 
   const stats = useMemo(() => {
-    const ingresos = pagos.reduce(
-      (total, pago) => total + (Number(pago.monto) || 0),
-      0,
-    );
-    const egresos = transacciones.reduce(
-      (total, t) =>
-        t.tipo === "egreso" ? total + (Number(t.monto) || 0) : total,
-      0,
-    );
-    const inventario = productos.reduce(
-      (total, p) => total + (Number(p.stock) || 0) * (Number(p.costo) || 0),
-      0,
-    );
+    const ingresos = pagos.reduce((total, pago) => total + (Number(pago.monto) || 0), 0);
+    const egresos = transacciones.reduce((total, t) => t.tipo === "egreso" ? total + (Number(t.monto) || 0) : total, 0);
+    const inventario = productos.reduce((total, p) => total + (Number(p.stock) || 0) * (Number(p.costo) || 0), 0);
     return {
       ingresos,
       egresos,
@@ -116,9 +80,7 @@ export function useDashboard() {
       productos: productos.length,
       ordenes: comandas.length,
       ticketPromedio: comandas.length ? ingresos / comandas.length : 0,
-      stockBajo: productos.filter(
-        (p) => Number(p.stock) <= Number(p.stock_minimo),
-      ),
+      stockBajo: productos.filter((p) => Number(p.stock) <= Number(p.stock_minimo)),
     };
   }, [comandas, pagos, productos, transacciones]);
 
@@ -131,12 +93,7 @@ export function useDashboard() {
     for (let i = 0; i < 14; i += 1) {
       const fecha = new Date(inicio);
       fecha.setDate(inicio.getDate() + i);
-      const dia = {
-        key: claveLocal(fecha),
-        label: etiquetaDia(fecha),
-        ingreso: 0,
-        egreso: 0,
-      };
+      const dia = { key: claveLocal(fecha), label: etiquetaDia(fecha), ingreso: 0, egreso: 0 };
       dias.push(dia);
       mapa.set(dia.key, dia);
     }
@@ -160,13 +117,10 @@ export function useDashboard() {
       const plato = platoPorId.get(item.plato_id);
       if (!plato) continue;
       const categoria = plato.categoria || "Sin categoría";
-      const monto =
-        (Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0);
+      const monto = (Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0);
       mapa.set(categoria, (mapa.get(categoria) ?? 0) + monto);
     }
-    return [...mapa.entries()]
-      .map(([categoria, monto]) => ({ categoria, monto }))
-      .sort((a, b) => b.monto - a.monto);
+    return [...mapa.entries()].map(([categoria, monto]) => ({ categoria, monto })).sort((a, b) => b.monto - a.monto);
   }, [items, platos]);
 
   const platosMasVendidos = useMemo<PlatoVendido[]>(() => {
@@ -183,17 +137,10 @@ export function useDashboard() {
         actual.cantidad += cantidad;
         actual.monto += monto;
       } else {
-        mapa.set(item.plato_id, {
-          nombre: plato.nombre,
-          categoria: plato.categoria,
-          cantidad,
-          monto,
-        });
+        mapa.set(item.plato_id, { nombre: plato.nombre, categoria: plato.categoria, cantidad, monto });
       }
     }
-    return [...mapa.values()]
-      .sort((a, b) => b.cantidad - a.cantidad)
-      .slice(0, 6);
+    return [...mapa.values()].sort((a, b) => b.cantidad - a.cantidad).slice(0, 6);
   }, [items, platos]);
 
   const ordenesPorDia = useMemo<DiaOperativo[]>(() => {
@@ -203,20 +150,13 @@ export function useDashboard() {
     const dias: DiaOperativo[] = [];
     const mapa = new Map<string, DiaOperativo>();
     const pagoPorComanda = new Map<string, number>();
-    for (const pago of pagos)
-      pagoPorComanda.set(
-        pago.comanda_id,
-        (pagoPorComanda.get(pago.comanda_id) ?? 0) + (Number(pago.monto) || 0),
-      );
+    for (const pago of pagos) {
+      pagoPorComanda.set(pago.comanda_id, (pagoPorComanda.get(pago.comanda_id) ?? 0) + (Number(pago.monto) || 0));
+    }
     for (let i = 0; i < 14; i += 1) {
       const fecha = new Date(inicio);
       fecha.setDate(inicio.getDate() + i);
-      const dia = {
-        key: claveLocal(fecha),
-        label: etiquetaDia(fecha),
-        ordenes: 0,
-        ventas: 0,
-      };
+      const dia = { key: claveLocal(fecha), label: etiquetaDia(fecha), ordenes: 0, ventas: 0 };
       dias.push(dia);
       mapa.set(dia.key, dia);
     }
@@ -236,10 +176,7 @@ export function useDashboard() {
       const hora = new Date(comanda.abierta_en).getHours();
       mapa.set(hora, (mapa.get(hora) ?? 0) + 1);
     }
-    return Array.from({ length: 24 }, (_, hora) => ({
-      hora: String(hora).padStart(2, "0") + ":00",
-      ordenes: mapa.get(hora) ?? 0,
-    })).filter((item) => item.ordenes > 0);
+    return Array.from({ length: 24 }, (_, hora) => ({ hora: String(hora).padStart(2, "0") + ":00", ordenes: mapa.get(hora) ?? 0 })).filter((item) => item.ordenes > 0);
   }, [comandas]);
 
   const metodosPago = useMemo<MetodoPago[]>(() => {
@@ -250,12 +187,9 @@ export function useDashboard() {
       if (actual) {
         actual.monto += Number(pago.monto) || 0;
         actual.cantidad += 1;
-      } else
-        mapa.set(metodo, {
-          metodo,
-          monto: Number(pago.monto) || 0,
-          cantidad: 1,
-        });
+      } else {
+        mapa.set(metodo, { metodo, monto: Number(pago.monto) || 0, cantidad: 1 });
+      }
     }
     return [...mapa.values()].sort((a, b) => b.monto - a.monto);
   }, [pagos]);
@@ -272,42 +206,27 @@ export function useDashboard() {
       if (actual) {
         actual.monto += monto;
         actual.ordenes += 1;
-      } else mapa.set(canal, { canal, monto, ordenes: 1 });
+      } else {
+        mapa.set(canal, { canal, monto, ordenes: 1 });
+      }
     }
     return [...mapa.values()].sort((a, b) => b.monto - a.monto);
   }, [comandas, pagos]);
 
-  const movimientos = useMemo(
-    () =>
-      transacciones
-        .filter((t) => t.tipo === "egreso")
-        .map((t) => ({
-          id: t.id,
-          tipo: t.tipo,
-          monto: Number(t.monto) || 0,
-          categoria: t.categoria,
-          descripcion: t.descripcion,
-          fecha: t.fecha,
-          automatica: t.automatica,
-        }))
-        .sort(
-          (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
-        )
-        .slice(0, 8),
-    [transacciones],
-  );
+  const movimientos = useMemo<MovimientoDashboard[]>(() => {
+    const egresos: MovimientoDashboard[] = transacciones
+      .filter((t) => t.tipo === "egreso")
+      .map((t) => ({ id: "egreso-" + t.id, tipo: "egreso", monto: Number(t.monto) || 0, categoria: t.categoria, descripcion: t.descripcion, fecha: t.fecha }));
+    const ingresos: MovimientoDashboard[] = pagos.map((pago) => ({
+      id: "pago-" + pago.id,
+      tipo: "ingreso",
+      monto: Number(pago.monto) || 0,
+      categoria: normalizarMetodo(pago.metodo_pago),
+      descripcion: "Pago de comanda",
+      fecha: pago.creado_en,
+    }));
+    return [...egresos, ...ingresos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).slice(0, 8);
+  }, [pagos, transacciones]);
 
-  return {
-    loading,
-    error,
-    stats,
-    ingresosEgresos,
-    ventasPorCategoria,
-    platosMasVendidos,
-    ordenesPorDia,
-    horasPico,
-    metodosPago,
-    ventasPorCanal,
-    movimientos,
-  };
+  return { loading, error, stats, ingresosEgresos, ventasPorCategoria, platosMasVendidos, ordenesPorDia, horasPico, metodosPago, ventasPorCanal, movimientos };
 }
