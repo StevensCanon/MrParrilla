@@ -1,12 +1,18 @@
-import { ArrowDownRight, ArrowUpRight, ClipboardList, Receipt, Wallet, Boxes } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  ClipboardList,
+  Receipt,
+  Wallet,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
-const money = (v: number) =>
+const money = (value: number) =>
   new Intl.NumberFormat("es-CO", {
     style: "currency",
     currency: "COP",
     maximumFractionDigits: 0,
-  }).format(Math.round(v || 0));
+  }).format(Math.round(value || 0));
 
 function Item({
   title,
@@ -24,19 +30,21 @@ function Item({
   return (
     <Card className="border-[#E8E2D8] bg-white shadow-none">
       <CardContent className="p-5">
-        <div className="flex justify-between">
+        <div className="flex justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#8A8375]">
               {title}
             </p>
             <p
-              className={"mt-2 text-2xl font-bold " + (cls || "text-[#22201D]")}
+              className={
+                "mt-2 text-2xl font-bold " + (cls || "text-[#22201D]")
+              }
             >
               {value}
             </p>
             <p className="mt-1 text-xs text-[#9B9488]">{desc}</p>
           </div>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-[#F3F1EC] text-[#6F695E]">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#F3F1EC] text-[#6F695E]">
             <Icon size={18} />
           </div>
         </div>
@@ -44,32 +52,26 @@ function Item({
     </Card>
   );
 }
+
 export function DashboardStats({
   ingresos,
   egresos,
   balance,
-  inventario,
-  productos,
+  ordenes,
+  ticketPromedio,
 }: {
   ingresos: number;
   egresos: number;
   balance: number;
-  inventario: number;
-  productos: number;
+  ordenes: number;
+  ticketPromedio: number;
 }) {
   return (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       <Item
-        title="Balance"
-        value={money(balance)}
-        desc="Ingresos menos egresos"
-        icon={Wallet}
-        cls={balance >= 0 ? "text-[#2E6B4F]" : "text-[#A3402A]"}
-      />
-      <Item
-        title="Ingresos"
+        title="Ventas"
         value={money(ingresos)}
-        desc="Entradas registradas"
+        desc="Pagos confirmados"
         icon={ArrowUpRight}
         cls="text-[#2E6B4F]"
       />
@@ -81,10 +83,23 @@ export function DashboardStats({
         cls="text-[#A3402A]"
       />
       <Item
-        title="Inventario"
-        value={money(inventario)}
-        desc={productos + " productos registrados"}
-        icon={Boxes}
+        title="Utilidad"
+        value={money(balance)}
+        desc="Ventas menos egresos"
+        icon={Wallet}
+        cls={balance >= 0 ? "text-[#2E6B4F]" : "text-[#A3402A]"}
+      />
+      <Item
+        title="Órdenes"
+        value={ordenes.toLocaleString("es-CO")}
+        desc="Comandas cerradas"
+        icon={ClipboardList}
+      />
+      <Item
+        title="Ticket promedio"
+        value={money(ticketPromedio)}
+        desc="Venta promedio por orden"
+        icon={Receipt}
       />
     </section>
   );
