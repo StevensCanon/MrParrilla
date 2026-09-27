@@ -3,7 +3,7 @@
 import { AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
-import { DashboardHeader } from "./components/dashboard/DashboardHeader";
+
 import { DashboardStats } from "./components/dashboard/DashboardStats";
 import { IngresosEgresosChart } from "./components/dashboard/IngresosEgresosChart";
 import { InventarioAlertas } from "./components/dashboard/InventarioAlertas";
@@ -24,7 +24,7 @@ export default function DashboardPage() {
  if(dashboard.error) return <DashboardError message={dashboard.error}/>;
 
  return <main className="mx-auto w-full max-w-[1400px] space-y-6 p-4 md:p-6 lg:p-8">
-  <DashboardHeader/>
+
   <DashboardStats {...dashboard.stats}/>
   <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
    <IngresosEgresosChart data={dashboard.ingresosEgresos}/>
