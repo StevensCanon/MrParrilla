@@ -3,6 +3,7 @@
 import { AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
+import { DashboardHeader } from "./components/dashboard/DashboardHeader";
 import { DashboardStats } from "./components/dashboard/DashboardStats";
 import { HorasPicoChart } from "./components/dashboard/HorasPicoChart";
 import { IngresosEgresosChart } from "./components/dashboard/IngresosEgresosChart";
@@ -23,8 +24,11 @@ function DashboardSkeleton() {
         <div className="h-4 w-72 animate-pulse rounded-lg bg-[#F0ECE5]" />
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-32 animate-pulse rounded-2xl bg-white" />
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-32 animate-pulse rounded-2xl bg-white"
+          />
         ))}
       </div>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -59,17 +63,43 @@ function DashboardError({ message }: { message: string }) {
 
 export default function DashboardPage() {
   const dashboard = useDashboard();
+
   if (dashboard.loading) return <DashboardSkeleton />;
   if (dashboard.error) return <DashboardError message={dashboard.error} />;
 
   return (
     <main className="mx-auto w-full max-w-[1400px] space-y-6 p-4 md:p-6 lg:p-8">
-      <DashboardStats {...dashboard.stats} />
+      <DashboardHeader />
+
+      <DashboardStats
+        ingresos={dashboard.stats.ingresos}
+        egresos={dashboard.stats.egresos}
+        balance={dashboard.stats.balance}
+        ordenes={dashboard.stats.ordenes}
+        ticketPromedio={dashboard.stats.ticketPromedio}
+      />
+
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <IngresosEgresosChart data={dashboard.ingresosEgresos} />
+        <VentasPorCategoriaChart data={dashboard.ventasPorCategoria} />
+      </section>
+
+      <OrdenesPorDiaChart data={dashboard.ordenesPorDia} />
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <PlatosMasVendidos data={dashboard.platosMasVendidos} />
+        <VentasPorMetodoPago data={dashboard.metodosPago} />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <HorasPicoChart data={dashboard.horasPico} />
+        <VentasPorCanal data={dashboard.ventasPorCanal} />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <MovimientosRecientes movimientos={dashboard.movimientos} />
         <InventarioAlertas productos={dashboard.stats.stockBajo} />
       </section>
-      <MovimientosRecientes movimientos={dashboard.movimientos} />
     </main>
   );
 }
