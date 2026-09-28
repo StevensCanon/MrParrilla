@@ -18,6 +18,19 @@ export type TransaccionDashboard = {
   automatica: boolean;
 };
 
+export type MovimientoCajaDashboard = {
+  id: string;
+  turno_caja_id: string;
+  tipo: "ingreso" | "egreso";
+  concepto: string;
+  categoria: string;
+  monto: number;
+  observacion: string | null;
+  comprobante_path: string | null;
+  creado_por: string;
+  creado_en: string;
+};
+
 export type ComandaDashboard = {
   id: string;
   canal: string;
@@ -56,32 +69,48 @@ export async function cargarDatosDashboard() {
   desde.setHours(0, 0, 0, 0);
   const desdeStr = desde.toISOString();
 
-  const [productosRes, transaccionesRes, comandasRes, pagosRes] =
-    await Promise.all([
-      supabase
-        .from("productos")
-        .select("id, nombre, stock, costo, stock_minimo"),
-      supabase
-        .from("transacciones")
-        .select("id, tipo, monto, categoria, descripcion, fecha, automatica")
-        .gte("fecha", desdeStr)
-        .order("fecha", { ascending: false }),
-      supabase
-        .from("comandas")
-        .select("id, canal, estado, abierta_en, cerrada_en")
-        .eq("estado", "cerrada")
-        .gte("cerrada_en", desdeStr)
-        .order("cerrada_en", { ascending: false }),
-      supabase
-        .from("pagos")
-        .select("id, comanda_id, metodo_pago, monto, creado_en, estado")
-        .eq("estado", "confirmado")
-        .gte("creado_en", desdeStr)
-        .order("creado_en", { ascending: false }),
-    ]);
+  const [
+    productosRes,
+    transaccionesRes,
+    movimientosCajaRes,
+    comandasRes,
+    pagosRes,
+  ] = await Promise.all([
+    supabase
+      .from("productos")
+      .select("id, nombre, stock, costo, stock_minimo"),
+    supabase
+      .from("transacciones")
+      .select("id, tipo, monto, categoria, descripcion, fecha, automatica")
+      .gte("fecha", desdeStr)
+      .order("fecha", { ascending: false }),
+    supabase
+      .from("movimientos_caja")
+      .select(
+        "id, turno_caja_id, tipo, concepto, categoria, monto, observacion, comprobante_path, creado_por, creado_en",
+      )
+      .eq("tipo", "egreso")
+      .gte("creado_en", desdeStr)
+      .order("creado_en", { ascending: false }),
+    supabase
+      .from("comandas")
+      .select("id, canal, estado, abierta_en, cerrada_en")
+      .eq("estado", "cerrada")
+      .gte("cerrada_en", desdeStr)
+      .order("cerrada_en", { ascending: false }),
+    supabase
+      .from("pagos")
+      .select("id, comanda_id, metodo_pago, monto, creado_en, estado")
+      .eq("estado", "confirmado")
+      .gte("creado_en", desdeStr)
+      .order("creado_en", { ascending: false }),
+  ]);
 
   if (productosRes.error) throw new Error(productosRes.error.message);
   if (transaccionesRes.error) throw new Error(transaccionesRes.error.message);
+  if (movimientosCajaRes.error) {
+    throw new Error(movimientosCajaRes.error.message);
+  }
   if (comandasRes.error) throw new Error(comandasRes.error.message);
   if (pagosRes.error) throw new Error(pagosRes.error.message);
 
@@ -118,6 +147,8 @@ export async function cargarDatosDashboard() {
   return {
     productos: (productosRes.data as ProductoDashboard[]) ?? [],
     transacciones: (transaccionesRes.data as TransaccionDashboard[]) ?? [],
+    movimientosCaja:
+      (movimientosCajaRes.data as MovimientoCajaDashboard[]) ?? [],
     comandas,
     pagos: (pagosRes.data as PagoDashboard[]) ?? [],
     items,
