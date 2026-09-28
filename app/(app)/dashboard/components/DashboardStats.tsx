@@ -57,21 +57,19 @@ export function DashboardStats({
   egresos,
   balance,
   ordenes,
-  ticketPromedio,
+ 
 }: {
   ingresos: number;
   egresos: number;
   balance: number;
   ordenes: number;
-  ticketPromedio: number;
 }) {
   return (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-      <StatCard title="Ventas" value={money(ingresos)} description="Pagos confirmados" icon={ArrowUpRight} accent="bg-[#3D8060]" valueClass="text-[#2E6B4F]" />
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <StatCard title="Ventas" value={money(ingresos)} description="Pagos confirmados" icon={ArrowUpRight} accent="bg-green-600" valueClass="text-green-800" />
       <StatCard title="Egresos" value={money(egresos)} description="Salidas registradas" icon={ArrowDownRight} accent="bg-[#C62828]" valueClass="text-[#A3402A]" />
-      <StatCard title="Utilidad" value={money(balance)} description="Ventas menos egresos" icon={Wallet} accent="bg-[#3B82F6]" valueClass={balance >= 0 ? "text-[#2E6B4F]" : "text-[#A3402A]"} />
+      <StatCard title="Utilidad" value={money(balance)} description="Ventas menos egresos" icon={Wallet} accent="bg-[#3B82F6]" valueClass={balance >= 0 ? "text-black" : "text-black"} />
       <StatCard title="Órdenes" value={ordenes.toLocaleString("es-CO")} description="Comandas cerradas" icon={ClipboardList} accent="bg-[#EAB308]" />
-      <StatCard title="Ticket promedio" value={money(ticketPromedio)} description="Valor medio por orden" icon={Receipt} accent="bg-[#C85C3D]" />
     </section>
   );
 }

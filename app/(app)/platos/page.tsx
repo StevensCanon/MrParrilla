@@ -140,7 +140,7 @@ export default function PlatosPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-100">
+    <main className="min-h-screen ">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <PlatosHeader
           onCrear={abrirCrear}

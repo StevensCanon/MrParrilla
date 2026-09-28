@@ -24,6 +24,10 @@ export const CATEGORIAS = [
     value: "adicional",
     label: "Adicionales",
   },
+  {
+    value: "combos",
+    label: "Combos",
+  },
 ] as const;
 
 export const ESTADO_COMANDA = {

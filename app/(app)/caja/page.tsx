@@ -93,7 +93,7 @@ export default function CajaPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-white p-6">
+      <main className="min-h-screen p-6">
         <div className="mx-auto max-w-7xl">
           <div className="flex min-h-[400px] items-center justify-center">
             <div className="flex items-center gap-3 text-sm text-neutral-500">
@@ -107,7 +107,7 @@ export default function CajaPage() {
   }
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen ">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Header */}
         <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

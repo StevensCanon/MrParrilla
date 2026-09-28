@@ -248,14 +248,7 @@ export default function LoginPage() {
         void iniciarSesion(pin);
       }
     },
-    [
-      agregarDigito,
-      borrarDigito,
-      cargando,
-      iniciarSesion,
-      pin,
-      seleccionado,
-    ],
+    [agregarDigito, borrarDigito, cargando, iniciarSesion, pin, seleccionado],
   );
 
   useEffect(() => {
@@ -289,10 +282,10 @@ export default function LoginPage() {
   }, []);
 
   return (
-    <main className="relative flex min-h-screen flex-col bg-[#6E1B18] lg:flex-row">
+    <main className="relative flex h-dvh flex-col overflow-hidden bg-[#6E1B18] lg:flex-row">
       {/* Fondo */}
       <div
-        className="pointer-events-none absolute inset-0 z-0 opacity-80"
+        className="pointer-events-none absolute inset-0 z-0 opacity-80 "
         style={{
           background:
             "radial-gradient(55% 45% at 18% 12%, rgba(255,148,88,0.28) 0%, transparent 60%), radial-gradient(50% 45% at 95% 100%, rgba(0,0,0,0.45) 0%, transparent 65%)",
@@ -318,7 +311,7 @@ export default function LoginPage() {
               alt="Logo MrParrilla"
               width={280}
               height={280}
-              className="relative object-contain drop-shadow-[0_14px_28px_rgba(0,0,0,0.35)]"
+              className="relative object-contain drop-shadow-[0_14px_28px_rgba(0,0,0,0.35)]:"
               loading="eager"
             />
           </div>
@@ -340,9 +333,9 @@ export default function LoginPage() {
       </div>
 
       {/* Login */}
-      <div className="relative z-10 mt-2 flex flex-1 items-center justify-center rounded-t-[2.25rem] bg-[#FBFAF8] px-4 py-12 shadow-[0_-16px_40px_rgba(0,0,0,0.18)] sm:px-8 lg:mt-0 lg:rounded-t-none lg:rounded-l-[2.75rem] lg:py-10 lg:shadow-[-24px_0_48px_rgba(0,0,0,0.18)]">
+      <div className="relative z-10 mt-2 flex min-h-0 flex-1 items-start justify-center overflow-y-auto rounded-t-[2.25rem] bg-[#FBFAF8] px-4 py-8 shadow-[0_-16px_40px_rgba(0,0,0,0.18)] sm:px-8 sm:py-10 lg:mt-0 lg:items-center lg:overflow-y-auto lg:rounded-t-none lg:rounded-l-[2.75rem] lg:py-10 lg:shadow-[-24px_0_48px_rgba(0,0,0,0.18)]">
         {!seleccionado ? (
-          <div className="w-full max-w-md">
+         <div className="w-full max-w-sm shrink-0">
             <div className="mb-8">
               <div className="mb-3 h-1 w-10 rounded-full bg-[#7A1F1B]" />
 
@@ -453,9 +446,7 @@ export default function LoginPage() {
                       size={13}
                       className="animate-spin text-[#777166]"
                     />
-                    <span className="text-[#777166]">
-                      Verificando PIN...
-                    </span>
+                    <span className="text-[#777166]">Verificando PIN...</span>
                   </>
                 ) : error ? (
                   <span className="font-medium text-[#B33A32]">{error}</span>
@@ -497,21 +488,10 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Teclado físico */}
-            <div className="mt-5 hidden items-center justify-center gap-1.5 text-[11px] text-[#AAA49A] sm:flex">
-              <span>
-                También puedes usar el teclado numérico o las teclas 0–9
-              </span>
-            </div>
-
             <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-[#AAA49A] lg:hidden">
               <ShieldCheck size={13} />
               Acceso seguro
             </div>
-
-            <p className="mt-5 text-center text-[11px] text-[#AAA49A]">
-              MrParrilla · Sistema interno
-            </p>
           </div>
         )}
       </div>

@@ -11,7 +11,7 @@ export function DashboardHeader() {
           Resumen del restaurante
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-[#22201D] md:text-3xl">
-          Dashboard
+         Panel de Control
         </h1>
         <p className="mt-1 text-sm text-[#8A8375]">
           Ventas, operación e inventario en una sola vista.
