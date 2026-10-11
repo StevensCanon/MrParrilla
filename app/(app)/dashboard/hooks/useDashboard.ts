@@ -53,11 +53,12 @@ function hoyLocal(): string {
   return fechaLocalString(new Date());
 }
 
-function rangoUltimos14Dias(): { desde: string; hasta: string } {
+function rangoSemanaActual(): { desde: string; hasta: string } {
   const hasta = new Date();
   hasta.setHours(0, 0, 0, 0);
   const desde = new Date(hasta);
-  desde.setDate(desde.getDate() - 13);
+  const dia = desde.getDay();
+  desde.setDate(desde.getDate() - (dia === 0 ? 6 : dia - 1));
   return { desde: fechaLocalString(desde), hasta: fechaLocalString(hasta) };
 }
 
@@ -110,10 +111,10 @@ export function useDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fechaExacta, setFechaExacta] = useState("");
-  const [fechaDesde, setFechaDesde] = useState(() => rangoUltimos14Dias().desde);
-  const [fechaHasta, setFechaHasta] = useState(() => rangoUltimos14Dias().hasta);
+  const [fechaDesde, setFechaDesde] = useState(() => rangoSemanaActual().desde);
+  const [fechaHasta, setFechaHasta] = useState(() => rangoSemanaActual().hasta);
 
-  const rangoPorDefecto = rangoUltimos14Dias();
+  const rangoPorDefecto = rangoSemanaActual();
   const desdeActivo = fechaExacta || fechaDesde || rangoPorDefecto.desde;
   const hastaActivo = fechaExacta || fechaHasta || hoyLocal();
 
@@ -420,12 +421,6 @@ export function useDashboard() {
     setFechaExacta,
     setFechaDesde,
     setFechaHasta,
-    limpiarFiltrosFecha: () => {
-      const rango = rangoUltimos14Dias();
-      setFechaExacta("");
-      setFechaDesde(rango.desde);
-      setFechaHasta(rango.hasta);
-    },
     stats,
     ingresosEgresos,
     ventasPorCategoria,
