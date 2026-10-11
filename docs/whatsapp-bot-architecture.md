@@ -2,67 +2,45 @@
 
 ## Objetivo
 
-Atender pedidos a domicilio por WhatsApp y registrar la comanda en MrParrilla sin duplicar pedidos ni confiar en precios enviados por el cliente. La integración se hará con la API oficial de WhatsApp Cloud API cuando Meta permita completar el alta del portfolio comercial y del número oficial.
+Atender pedidos a domicilio desde el número oficial de WhatsApp y registrar las comandas en MrParrilla, sin confiar en precios enviados por el cliente ni crear pedidos por mensajes ambiguos. La conexión con el número real depende de completar la configuración de WhatsApp Cloud API y los permisos comerciales en Meta.
 
-## Estado actual del repositorio
+## Estado implementado en `feature/whatsapp-bot-foundation`
 
-- Aplicación Next.js App Router con TypeScript.
-- Supabase se usa desde `lib/supabaseClient.ts` con el cliente de navegador y la clave publicable.
-- Los platos se consultan desde `platos` (`id`, `nombre`, `categoria`, `precio`, `disponible`).
-- Los menús se modelan con `menus`, `menu_platos`, `menu_grupos` y `menu_opciones`; las opciones pueden tener recargo, agotamiento y porciones disponibles/reservadas/consumidas.
-- Hay lógica de pedidos en `comandas` y `comanda_items`, pero el esquema completo no está versionado en los archivos SQL del repositorio. Antes de escribir pedidos desde el bot hay que confirmar los nombres, valores de enums, políticas RLS y relaciones directamente contra el esquema real de Supabase.
-- No hay todavía un endpoint de webhook de WhatsApp en `app/api`.
+- Motor conversacional independiente en `lib/whatsapp/bot-engine.ts`.
+- Webhook `app/api/whatsapp/webhook/route.ts`: GET para verificar el challenge de Meta y POST con comprobación HMAC de `X-Hub-Signature-256`.
+- Adaptador saliente en `lib/whatsapp/cloud-api.ts`.
+- Cliente de Supabase exclusivo del servidor en `lib/whatsapp/supabase-server.ts`, usando `SUPABASE_SERVICE_ROLE_KEY`; esa clave no se debe usar en componentes cliente ni subir a Git.
+- Migración `supabase/sql/20261011_whatsapp_bot_foundation.sql` para persistencia, restricción de acceso desde el navegador, conversaciones únicas por teléfono y deduplicación de mensajes entrantes.
+- La conversación y la respuesta quedan guardadas en una transacción antes del envío, para que los reintentos no vuelvan a ejecutar el motor ni agreguen dos veces el mismo producto al borrador.
 
-## Arquitectura propuesta
+## Configuración
 
-1. **Webhook de WhatsApp** — `app/api/whatsapp/webhook/route.ts`
-   - GET: validar el token de verificación y devolver el challenge de Meta.
-   - POST: validar la firma `X-Hub-Signature-256` con el secreto de la app antes de procesar el cuerpo.
-   - Responder rápidamente a Meta y procesar de forma idempotente para tolerar reintentos.
+Configura estas variables en el entorno local o de despliegue. No agregues secretos al repositorio:
 
-2. **Adaptador de WhatsApp** — `lib/whatsapp/cloud-api.ts`
-   - Enviar mensajes usando la API Graph de Meta con `WHATSAPP_ACCESS_TOKEN` y `WHATSAPP_PHONE_NUMBER_ID`.
-   - No exponer tokens en el navegador, respuestas de API ni logs.
-   - Mantener la versión de Graph API en una variable/configuración centralizada.
+- `SUPABASE_URL` (o reutiliza `NEXT_PUBLIC_SUPABASE_URL`).
+- `SUPABASE_SERVICE_ROLE_KEY` (solo servidor; nunca `NEXT_PUBLIC_*`).
+- `WHATSAPP_VERIFY_TOKEN`.
+- `WHATSAPP_APP_SECRET`.
+- `WHATSAPP_ACCESS_TOKEN`.
+- `WHATSAPP_PHONE_NUMBER_ID`.
+- `WHATSAPP_GRAPH_API_VERSION` (formato `vXX.0`, correspondiente a una versión disponible para la aplicación de Meta).
 
-3. **Motor conversacional independiente del proveedor** — `lib/whatsapp/bot-engine.ts`
-   - Recibir el mensaje normalizado, el estado de conversación y el catálogo vigente.
-   - Devolver el texto de respuesta, el siguiente estado y una acción tipada.
-   - No consultar Supabase directamente ni crear comandas; esa responsabilidad queda en los servicios de aplicación.
+Antes de registrar el webhook en Meta:
 
-4. **Servicios de aplicación y datos**
-   - Consultar el menú del día y sus opciones disponibles desde el servidor.
-   - Validar disponibilidad, cantidades y precios siempre en el servidor.
-   - Guardar el borrador de pedido por número de teléfono y estado.
-   - Crear la comanda solo después de que el cliente confirme explícitamente el resumen.
-   - Guardar el identificador de cada mensaje entrante procesado para evitar duplicados por reintentos.
-   - Definir de forma explícita el flujo de entrega/domicilio, datos de contacto, dirección, costo de domicilio y método de pago antes de activar pedidos reales.
+1. Ejecuta la migración SQL en el proyecto correcto de Supabase.
+2. Si la migración avisa que existen teléfonos duplicados en `conversaciones_whatsapp`, revisa y resuelve esos duplicados; la migración no elimina registros automáticamente.
+3. Despliega la aplicación en una URL HTTPS pública.
+4. Configura en Meta la URL `/api/whatsapp/webhook`, el mismo token de verificación y la suscripción a mensajes.
+5. Conserva todos los secretos únicamente en variables de entorno del servidor.
 
-5. **Configuración y secretos**
-   - Variables previstas: `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` y `WHATSAPP_GRAPH_API_VERSION`.
-   - Los secretos se configuran en el entorno local/de despliegue; nunca se guardan en Git.
-   - `.env*` ya está excluido por `.gitignore`.
+## Alcance actual y tareas pendientes
 
-## Flujo de conversación inicial
+Esta entrega permite intercambiar mensajes de texto, consultar platos del menú activo de hoy, añadir productos al borrador, consultar el carrito y conservar el estado entre mensajes. **Todavía no registra comandas reales.** El motor aún necesita el flujo completo de opciones obligatorias/opcionales, cantidades editables, nombre y dirección, costo de domicilio, método de pago, validación de porciones y reservas de `menu_opciones`.
 
-1. Saludo y menú de opciones.
-2. Consultar menú disponible del día.
-3. Elegir plato y opciones requeridas.
-4. Elegir cantidades y agregar más productos.
-5. Capturar nombre, teléfono (normalizado desde WhatsApp) y dirección de entrega.
-6. Mostrar resumen con precios calculados en servidor.
-7. Confirmar o cancelar.
-8. Crear la comanda una sola vez y responder con su número/identificador.
+La siguiente fase debe implementar una operación de servidor transaccional para verificar de nuevo menú, productos, precios, opciones y disponibilidad y crear la comanda con `canal = 'whatsapp'`, sus elementos principales/hijos y las reservas correspondientes. Solo después de una confirmación inequívoca del resumen se debe invocar esa operación. La deduplicación de los mensajes es distinta de la idempotencia de creación de comandas; ambas deben mantenerse.
 
-## Orden de implementación
+## Seguridad y RLS
 
-- **Fase 1 — Contratos y esquema:** confirmar el esquema real de `conversaciones_whatsapp`, `comandas`, `comanda_items`, menús, opciones y reservas; revisar RLS y enums.
-- **Fase 2 — Motor y simulador local:** probar el diálogo sin Meta ni pedidos reales.
-- **Fase 3 — Persistencia:** guardar estado del diálogo y carrito de forma segura en Supabase.
-- **Fase 4 — Cloud API:** implementar webhook, firma, envío de mensajes y deduplicación.
-- **Fase 5 — Pruebas integrales:** verificar mensajes repetidos, cancelaciones, platos agotados, precios cambiados, errores de red y confirmación de pedido.
-- **Fase 6 — Producción:** conectar el número oficial, revisar permisos, privacidad, política de mensajes y configuración de despliegue.
+Las políticas existentes de `comandas` y `comanda_items` dependen de roles de empleados de MrParrilla. El webhook no debe simular un empleado ni abrir políticas de inserción a `anon`. Las operaciones automatizadas usan una clave de servicio exclusivamente del servidor y deben validar cada dato. Las tablas de conversación quedan sin permisos para `anon` y `authenticated`, mientras el servidor accede a ellas.
 
-## Regla de seguridad
-
-El bot no debe crear una comanda a partir de un mensaje ambiguo ni aceptar el total calculado por el cliente. Debe reconstruir el pedido y su precio con datos actuales de Supabase y solicitar una confirmación explícita antes de registrar la venta.
+No se deben registrar teléfonos, contenido de mensajes, tokens ni cuerpos de respuesta sensibles en logs de producción. Antes de producción también se deben revisar privacidad, mensajes duplicados, reintentos, productos agotados, errores de red y disponibilidad del número oficial.
