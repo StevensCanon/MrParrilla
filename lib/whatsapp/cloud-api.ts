@@ -13,7 +13,7 @@ function obtenerConfiguracion() {
     );
   }
 
-  if (!/^v\\d+\\.\\d+$/.test(graphApiVersion)) {
+  if (!/^v\d+\.\d+$/.test(graphApiVersion)) {
     throw new Error(
       "WHATSAPP_GRAPH_API_VERSION debe tener un formato como vXX.0.",
     );
