@@ -7,6 +7,7 @@ import {
   type ContextoBot,
   type EstadoConversacionWhatsApp,
   type ItemCatalogoBot,
+  type ResultadoBot,
 } from "@/lib/whatsapp/bot-engine";
 import { enviarTextoWhatsApp } from "@/lib/whatsapp/cloud-api";
 import { crearClienteSupabaseServidor } from "@/lib/whatsapp/supabase-server";
@@ -357,7 +358,7 @@ async function procesarMensajeEntrante(
     const estado = normalizarEstado(conversacion?.estado ?? "inicio");
     const borrador = normalizarBorrador(conversacion?.pedido_borrador);
 
-    let resultado;
+    let resultado: Pick<ResultadoBot, "respuesta" | "estado" | "borrador">;
 
     if (mensaje.type !== "text") {
       resultado = {
@@ -482,10 +483,10 @@ export async function POST(request: NextRequest) {
     return Response.json({ recibido: true });
   }
 
-  const supabase = crearClienteSupabaseServidor();
   const phoneNumberIdConfigurado = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
   try {
+    const supabase = crearClienteSupabaseServidor();
     for (const entry of payload.entry ?? []) {
       for (const change of entry.changes ?? []) {
         const valor = change.value;
