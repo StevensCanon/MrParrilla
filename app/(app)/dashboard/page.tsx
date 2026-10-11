@@ -72,7 +72,6 @@ export default function DashboardPage() {
         onFechaExactaChange={dashboard.setFechaExacta}
         onFechaDesdeChange={dashboard.setFechaDesde}
         onFechaHastaChange={dashboard.setFechaHasta}
-        onLimpiar={dashboard.limpiarFiltrosFecha}
       />
 
       <DashboardStats
