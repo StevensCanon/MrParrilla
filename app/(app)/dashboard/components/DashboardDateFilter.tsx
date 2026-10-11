@@ -117,7 +117,7 @@ export function DashboardDateFilter({
 
   return (
     <section className="rounded-2xl border border-[#E7E1D7] bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4">
         <div>
           <h2 className="text-sm font-semibold text-[#22201D]">Periodo</h2>
           <p className="mt-1 text-xs text-[#8A8375]">
@@ -125,7 +125,7 @@ export function DashboardDateFilter({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {opciones.map((opcion) => (
             <button
               key={opcion.valor}
