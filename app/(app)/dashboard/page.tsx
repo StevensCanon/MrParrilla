@@ -3,6 +3,7 @@
 import { AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardHeader } from "./components/DashboardHeader";
+import { DashboardDateFilter } from "./components/DashboardDateFilter";
 import { DashboardStats } from "./components/DashboardStats";
 import { HorasPicoChart } from "./components/HorasPicoChart";
 import { IngresosEgresosChart } from "./components/IngresosEgresosChart";
@@ -63,6 +64,16 @@ export default function DashboardPage() {
   return (
     <main className="mx-auto w-full max-w-[1440px] space-y-5 p-4 md:p-6 lg:p-8">
       <DashboardHeader />
+
+      <DashboardDateFilter
+        fechaExacta={dashboard.fechaExacta}
+        fechaDesde={dashboard.fechaDesde}
+        fechaHasta={dashboard.fechaHasta}
+        onFechaExactaChange={dashboard.setFechaExacta}
+        onFechaDesdeChange={dashboard.setFechaDesde}
+        onFechaHastaChange={dashboard.setFechaHasta}
+        onLimpiar={dashboard.limpiarFiltrosFecha}
+      />
 
       <DashboardStats
         ingresos={dashboard.stats.ingresos}
