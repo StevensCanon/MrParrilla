@@ -41,6 +41,40 @@ export type MovimientoDashboard = {
   fecha: string;
 };
 
+function fechaLocalString(fecha: Date): string {
+  return [
+    fecha.getFullYear(),
+    String(fecha.getMonth() + 1).padStart(2, "0"),
+    String(fecha.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function hoyLocal(): string {
+  return fechaLocalString(new Date());
+}
+
+function rangoUltimos14Dias(): { desde: string; hasta: string } {
+  const hasta = new Date();
+  hasta.setHours(0, 0, 0, 0);
+  const desde = new Date(hasta);
+  desde.setDate(desde.getDate() - 13);
+  return { desde: fechaLocalString(desde), hasta: fechaLocalString(hasta) };
+}
+
+function fechasDelPeriodo(desdeValor: string, hastaValor: string): Date[] {
+  const [desdeYear, desdeMonth, desdeDay] = desdeValor.split("-").map(Number);
+  const [hastaYear, hastaMonth, hastaDay] = hastaValor.split("-").map(Number);
+  const desde = new Date(desdeYear, desdeMonth - 1, desdeDay);
+  const hasta = new Date(hastaYear, hastaMonth - 1, hastaDay);
+  const fechas: Date[] = [];
+
+  for (const fecha = new Date(desde); fecha <= hasta; fecha.setDate(fecha.getDate() + 1)) {
+    fechas.push(new Date(fecha));
+  }
+
+  return fechas;
+}
+
 const claveFecha = (fecha: string) => fecha.slice(0, 10);
 const claveLocal = (fecha: Date) =>
   [
@@ -75,13 +109,20 @@ export function useDashboard() {
   const [platos, setPlatos] = useState<PlatoDashboard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fechaExacta, setFechaExacta] = useState("");
+  const [fechaDesde, setFechaDesde] = useState(() => rangoUltimos14Dias().desde);
+  const [fechaHasta, setFechaHasta] = useState(() => rangoUltimos14Dias().hasta);
+
+  const rangoPorDefecto = rangoUltimos14Dias();
+  const desdeActivo = fechaExacta || fechaDesde || rangoPorDefecto.desde;
+  const hastaActivo = fechaExacta || fechaHasta || hoyLocal();
 
   useEffect(() => {
     let cancelado = false;
 
     const cargar = async () => {
       try {
-        const datos = await cargarDatosDashboard();
+        const datos = await cargarDatosDashboard(desdeActivo, hastaActivo);
 
         if (cancelado) return;
 
@@ -111,7 +152,7 @@ export function useDashboard() {
     return () => {
       cancelado = true;
     };
-  }, []);
+  }, [desdeActivo, hastaActivo]);
 
   const stats = useMemo(() => {
     const ingresos = pagos.reduce(
@@ -148,17 +189,10 @@ export function useDashboard() {
   }, [comandas, movimientosCaja, pagos, productos]);
 
   const ingresosEgresos = useMemo<DiaFinanciero[]>(() => {
-    const inicio = new Date();
-    inicio.setHours(0, 0, 0, 0);
-    inicio.setDate(inicio.getDate() - 13);
-
     const dias: DiaFinanciero[] = [];
     const mapa = new Map<string, DiaFinanciero>();
 
-    for (let i = 0; i < 14; i += 1) {
-      const fecha = new Date(inicio);
-      fecha.setDate(inicio.getDate() + i);
-
+    for (const fecha of fechasDelPeriodo(desdeActivo, hastaActivo)) {
       const dia = {
         key: claveLocal(fecha),
         label: etiquetaDia(fecha),
@@ -189,7 +223,7 @@ export function useDashboard() {
     }
 
     return dias;
-  }, [movimientosCaja, pagos]);
+  }, [desdeActivo, hastaActivo, movimientosCaja, pagos]);
 
   const ventasPorCategoria = useMemo<CategoriaVenta[]>(() => {
     const platoPorId = new Map(platos.map((p) => [p.id, p]));
@@ -248,10 +282,6 @@ export function useDashboard() {
   }, [items, platos]);
 
   const ordenesPorDia = useMemo<DiaOperativo[]>(() => {
-    const inicio = new Date();
-    inicio.setHours(0, 0, 0, 0);
-    inicio.setDate(inicio.getDate() - 13);
-
     const dias: DiaOperativo[] = [];
     const mapa = new Map<string, DiaOperativo>();
     const pagoPorComanda = new Map<string, number>();
@@ -264,10 +294,7 @@ export function useDashboard() {
       );
     }
 
-    for (let i = 0; i < 14; i += 1) {
-      const fecha = new Date(inicio);
-      fecha.setDate(inicio.getDate() + i);
-
+    for (const fecha of fechasDelPeriodo(desdeActivo, hastaActivo)) {
       const dia = {
         key: claveLocal(fecha),
         label: etiquetaDia(fecha),
@@ -290,7 +317,7 @@ export function useDashboard() {
     }
 
     return dias;
-  }, [comandas, pagos]);
+  }, [desdeActivo, hastaActivo, comandas, pagos]);
 
   const horasPico = useMemo<HoraPico[]>(() => {
     const mapa = new Map<number, number>();
@@ -387,6 +414,18 @@ export function useDashboard() {
   return {
     loading,
     error,
+    fechaExacta,
+    fechaDesde,
+    fechaHasta,
+    setFechaExacta,
+    setFechaDesde,
+    setFechaHasta,
+    limpiarFiltrosFecha: () => {
+      const rango = rangoUltimos14Dias();
+      setFechaExacta("");
+      setFechaDesde(rango.desde);
+      setFechaHasta(rango.hasta);
+    },
     stats,
     ingresosEgresos,
     ventasPorCategoria,
