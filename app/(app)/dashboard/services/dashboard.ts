@@ -63,11 +63,18 @@ export type PlatoDashboard = {
   categoria: string;
 };
 
-export async function cargarDatosDashboard() {
-  const desde = new Date();
-  desde.setDate(desde.getDate() - 13);
-  desde.setHours(0, 0, 0, 0);
+function inicioDelDia(valor: string): Date {
+  const [year, month, day] = valor.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export async function cargarDatosDashboard(fechaDesde: string, fechaHasta: string) {
+  const desde = inicioDelDia(fechaDesde);
+  const hastaExclusivo = inicioDelDia(fechaHasta);
+  hastaExclusivo.setDate(hastaExclusivo.getDate() + 1);
+
   const desdeStr = desde.toISOString();
+  const hastaStr = hastaExclusivo.toISOString();
 
   const [
     productosRes,
@@ -83,6 +90,7 @@ export async function cargarDatosDashboard() {
       .from("transacciones")
       .select("id, tipo, monto, categoria, descripcion, fecha, automatica")
       .gte("fecha", desdeStr)
+      .lt("fecha", hastaStr)
       .order("fecha", { ascending: false }),
     supabase
       .from("movimientos_caja")
@@ -91,18 +99,21 @@ export async function cargarDatosDashboard() {
       )
       .eq("tipo", "egreso")
       .gte("creado_en", desdeStr)
+      .lt("creado_en", hastaStr)
       .order("creado_en", { ascending: false }),
     supabase
       .from("comandas")
       .select("id, canal, estado, abierta_en, cerrada_en")
       .eq("estado", "cerrada")
       .gte("cerrada_en", desdeStr)
+      .lt("cerrada_en", hastaStr)
       .order("cerrada_en", { ascending: false }),
     supabase
       .from("pagos")
       .select("id, comanda_id, metodo_pago, monto, creado_en, estado")
       .eq("estado", "confirmado")
       .gte("creado_en", desdeStr)
+      .lt("creado_en", hastaStr)
       .order("creado_en", { ascending: false }),
   ]);
 
