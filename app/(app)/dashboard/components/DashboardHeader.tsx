@@ -1,4 +1,4 @@
-import { CalendarDays, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 export function DashboardHeader() {
   return (
@@ -17,10 +17,7 @@ export function DashboardHeader() {
           Ventas, operación e inventario en una sola vista.
         </p>
       </div>
-      <div className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#E7E1D7] bg-[#F8F6F1] px-3 py-2 text-xs font-semibold text-[#6F695E]">
-        <CalendarDays size={15} className="text-[#C85C3D]" />
-        Últimos 14 días
-      </div>
+
     </header>
   );
 }
