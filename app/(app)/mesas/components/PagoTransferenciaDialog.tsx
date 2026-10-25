@@ -54,7 +54,7 @@ export function PagoTransferenciaDialog({
           </DialogTitle>
 
           <DialogDescription>
-            Confirma que la transferencia fue recibida antes de cerrar la comanda.
+            Confirma que recibiste esta parte de la cuenta. La comanda se cerrará cuando se cubra el saldo completo.
           </DialogDescription>
         </DialogHeader>
 

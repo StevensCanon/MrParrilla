@@ -57,11 +57,19 @@ export function MesasGrid({
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {mesas.map((mesa) => {
         const ocupada = estaOcupada(mesa.id);
+        const mesaPrincipal = mesa.unida_a
+          ? mesas.find((actual) => actual.id === mesa.unida_a) ?? null
+          : null;
+        const mesasUnidas = mesas.filter(
+          (actual) => actual.unida_a === mesa.id,
+        );
 
         return (
           <MesaCard
             key={mesa.id}
             mesa={mesa}
+            mesaPrincipal={mesaPrincipal}
+            mesasUnidas={mesasUnidas}
             ocupada={ocupada}
             total={
               ocupada

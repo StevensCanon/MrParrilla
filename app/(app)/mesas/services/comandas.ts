@@ -896,6 +896,27 @@ export async function confirmarComanda({
 }
 
 export async function liberarComanda(comandaId: string): Promise<void> {
+  const { data: comanda, error: errorComandaActual } = await supabase
+    .from("comandas")
+    .select("mesa_id")
+    .eq("id", comandaId)
+    .single();
+
+  if (errorComandaActual) {
+    throw new Error(errorComandaActual.message);
+  }
+
+  if (comanda?.mesa_id) {
+    const { error: errorDesunir } = await supabase
+      .from("mesas")
+      .update({ unida_a: null })
+      .eq("unida_a", comanda.mesa_id);
+
+    if (errorDesunir) {
+      throw new Error(errorDesunir.message);
+    }
+  }
+
   const { error: errorItems } = await supabase
     .from("comanda_items")
     .delete()

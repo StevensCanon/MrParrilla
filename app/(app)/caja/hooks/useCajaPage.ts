@@ -35,16 +35,24 @@ efectivo_esperado: number;
 cantidad_egresos: number;
 };
 
-export type RelacionCaja = {
+export type PagoRelacionCaja = {
   id: string;
-  comanda_id: string;
-  mesa_id: string | null;
-  mesa_nombre: string | null;
+  persona_numero: number | null;
+  platos: string[];
   metodo_pago: "efectivo" | "transferencia" | "tarjeta";
   monto: number;
   monto_recibido: number | null;
   cambio: number | null;
   creado_en: string;
+};
+
+export type RelacionCaja = {
+  comanda_id: string;
+  mesa_id: string | null;
+  mesa_nombre: string | null;
+  pagos: PagoRelacionCaja[];
+  total: number;
+  fecha_ultimo_pago: string;
 };
 
 export type EgresoCaja = {
@@ -94,20 +102,97 @@ const [error, setError] = useState<string | null>(null);
   const [errorEgresos, setErrorEgresos] = useState<string | null>(null);
   const [abriendoComprobante, setAbriendoComprobante] = useState<string | null>(null);
 
-  const cargarRelaciones = useCallback(async (turnoId: string) => {
+  const cargarRelaciones = useCallback(async (turnoActual: TurnoCaja) => {
     setCargandoRelaciones(true);
     setErrorRelaciones(null);
     try {
-      const { data, error: consultaError } = await supabase
-        .from("pagos")
-        .select("id,comanda_id,mesa_id,metodo_pago,monto,monto_recibido,cambio,creado_en")
-        .eq("turno_caja_id", turnoId)
-        .eq("estado", "confirmado")
-        .order("creado_en", { ascending: false });
-      if (consultaError) throw new Error(consultaError.message);
+      const columnasPago = "id,comanda_id,mesa_id,cuenta_persona_id,metodo_pago,monto,monto_recibido,cambio,creado_en";
+      const [pagosDelTurno, pagosSinTurno] = await Promise.all([
+        supabase
+          .from("pagos")
+          .select(columnasPago)
+          .eq("turno_caja_id", turnoActual.id)
+          .eq("estado", "confirmado")
+          .order("creado_en", { ascending: false }),
+        // Compatibilidad de lectura para pagos recientes que se crearon antes
+        // de que el registro de pagos los asociara explícitamente al turno.
+        supabase
+          .from("pagos")
+          .select(columnasPago)
+          .is("turno_caja_id", null)
+          .eq("cajero_id", turnoActual.cajero_id)
+          .eq("estado", "confirmado")
+          .gte("creado_en", turnoActual.abierto_en)
+          .order("creado_en", { ascending: false }),
+      ]);
+      if (pagosDelTurno.error) throw new Error(pagosDelTurno.error.message);
+      if (pagosSinTurno.error) throw new Error(pagosSinTurno.error.message);
 
       // Consultamos las mesas por separado para evitar depender de joins ambiguos.
-      const filas = data ?? [];
+      const filas = [...new Map([
+        ...(pagosDelTurno.data ?? []),
+        ...(pagosSinTurno.data ?? []),
+      ].map((pago) => [String(pago.id), pago] as const)).values()]
+        .sort((a, b) => new Date(String(b.creado_en)).getTime() - new Date(String(a.creado_en)).getTime());
+      const idsPersonas = [...new Set(filas
+        .map((pago) => pago.cuenta_persona_id)
+        .filter((id): id is string => typeof id === "string"))];
+      const personasPorId = new Map<string, number>();
+      const asignacionesPorPersona = new Map<string, { itemId: string; cantidad: number }[]>();
+      const nombresPlatos = new Map<string, string>();
+      const platosPorPersona = new Map<string, string[]>();
+
+      if (idsPersonas.length > 0) {
+        const { data: personas, error: personasError } = await supabase
+          .from("comanda_personas")
+          .select("id,numero")
+          .in("id", idsPersonas);
+        if (personasError) throw new Error(personasError.message);
+        for (const persona of personas ?? []) {
+          personasPorId.set(String(persona.id), Number(persona.numero));
+        }
+
+        const { data: asignaciones, error: asignacionesError } = await supabase
+          .from("comanda_persona_items")
+          .select("persona_id,comanda_item_id,cantidad")
+          .in("persona_id", idsPersonas);
+        if (asignacionesError) throw new Error(asignacionesError.message);
+        const idsItems = [...new Set((asignaciones ?? []).map((item) => String(item.comanda_item_id)))];
+        for (const asignacion of asignaciones ?? []) {
+          const personaId = String(asignacion.persona_id);
+          const actuales = asignacionesPorPersona.get(personaId) ?? [];
+          actuales.push({ itemId: String(asignacion.comanda_item_id), cantidad: convertirNumero(asignacion.cantidad) });
+          asignacionesPorPersona.set(personaId, actuales);
+        }
+
+        if (idsItems.length > 0) {
+          const { data: items, error: itemsError } = await supabase
+            .from("comanda_items")
+            .select("id,plato_id")
+            .in("id", idsItems);
+          if (itemsError) throw new Error(itemsError.message);
+          const idsPlatos = [...new Set((items ?? []).map((item) => String(item.plato_id)))];
+          if (idsPlatos.length > 0) {
+            const { data: platos, error: platosError } = await supabase
+              .from("platos")
+              .select("id,nombre")
+              .in("id", idsPlatos);
+            if (platosError) throw new Error(platosError.message);
+            for (const plato of platos ?? []) {
+              nombresPlatos.set(String(plato.id), String(plato.nombre));
+            }
+          }
+          const platoPorItem = new Map((items ?? []).map((item) => [String(item.id), String(item.plato_id)]));
+          for (const [personaId, asignacionesPersona] of asignacionesPorPersona) {
+            platosPorPersona.set(personaId, asignacionesPersona.map((asignacion) => {
+              const platoId = platoPorItem.get(asignacion.itemId);
+              const nombre = platoId ? nombresPlatos.get(platoId) ?? "Plato" : "Plato";
+              return `${asignacion.cantidad} × ${nombre}`;
+            }));
+          }
+        }
+      }
+
       const idsMesas = [...new Set(filas.map((pago) => pago.mesa_id).filter((id): id is string => typeof id === "string"))];
       const nombresMesas = new Map<string, string>();
       if (idsMesas.length) {
@@ -122,17 +207,44 @@ const [error, setError] = useState<string | null>(null);
           nombresMesas.set(String(fila.id), etiqueta == null ? String(fila.id).slice(0, 8) : String(etiqueta));
         }
       }
-      setRelaciones(filas.map((pago) => ({
-        id: String(pago.id),
-        comanda_id: String(pago.comanda_id),
-        mesa_id: pago.mesa_id ? String(pago.mesa_id) : null,
-        mesa_nombre: pago.mesa_id ? nombresMesas.get(String(pago.mesa_id)) ?? null : null,
-        metodo_pago: pago.metodo_pago as RelacionCaja["metodo_pago"],
-        monto: convertirNumero(pago.monto),
-        monto_recibido: pago.monto_recibido == null ? null : convertirNumero(pago.monto_recibido),
-        cambio: pago.cambio == null ? null : convertirNumero(pago.cambio),
-        creado_en: String(pago.creado_en),
-      })));
+      const relacionesPorComanda = new Map<string, RelacionCaja>();
+      for (const pago of filas) {
+        const comandaId = String(pago.comanda_id);
+        const creadoEn = String(pago.creado_en);
+        const relacion = relacionesPorComanda.get(comandaId) ?? {
+          comanda_id: comandaId,
+          mesa_id: pago.mesa_id ? String(pago.mesa_id) : null,
+          mesa_nombre: pago.mesa_id ? nombresMesas.get(String(pago.mesa_id)) ?? null : null,
+          pagos: [],
+          total: 0,
+          fecha_ultimo_pago: creadoEn,
+        };
+        const detallePago: PagoRelacionCaja = {
+          id: String(pago.id),
+          persona_numero: pago.cuenta_persona_id ? personasPorId.get(String(pago.cuenta_persona_id)) ?? null : null,
+          platos: pago.cuenta_persona_id ? platosPorPersona.get(String(pago.cuenta_persona_id)) ?? [] : [],
+          metodo_pago: pago.metodo_pago as PagoRelacionCaja["metodo_pago"],
+          monto: convertirNumero(pago.monto),
+          monto_recibido: pago.monto_recibido == null ? null : convertirNumero(pago.monto_recibido),
+          cambio: pago.cambio == null ? null : convertirNumero(pago.cambio),
+          creado_en: creadoEn,
+        };
+        relacion.pagos.push(detallePago);
+        relacion.total += detallePago.monto;
+        if (new Date(creadoEn).getTime() > new Date(relacion.fecha_ultimo_pago).getTime()) {
+          relacion.fecha_ultimo_pago = creadoEn;
+        }
+        relacionesPorComanda.set(comandaId, relacion);
+      }
+
+      const relacionesAgrupadas = [...relacionesPorComanda.values()];
+      for (const relacion of relacionesAgrupadas) {
+        relacion.pagos.sort((a, b) => new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime());
+      }
+      relacionesAgrupadas.sort(
+        (a, b) => new Date(b.fecha_ultimo_pago).getTime() - new Date(a.fecha_ultimo_pago).getTime(),
+      );
+      setRelaciones(relacionesAgrupadas);
     } catch (err) {
       setRelaciones([]);
       setErrorRelaciones(err instanceof Error ? err.message : "No se pudieron cargar las relaciones.");
@@ -330,7 +442,7 @@ try {
 
   await Promise.all([
     cargarResumen(),
-    cargarRelaciones(turnoActual.id),
+    cargarRelaciones(turnoActual),
     cargarEgresos(turnoActual.id),
   ]);
 } catch (err) {

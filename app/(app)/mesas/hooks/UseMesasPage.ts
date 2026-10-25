@@ -24,10 +24,12 @@ import {
   editarMesa as editarMesaService,
   eliminarMesa as eliminarMesaService,
   ordenarListaMesas,
+  unirMesas as unirMesasService,
 } from "../services/mesas";
 import {
-  confirmarPagoEfectivo as confirmarPagoEfectivoService,
-  confirmarPagoTransferencia as confirmarPagoTransferenciaService,
+  configurarDivisionCuenta as configurarDivisionCuentaService,
+  registrarPagoParcial,
+  registrarPagoPersona,
 } from "../services/pagos";
 
 import { CATEGORIAS } from "../constants/constants";
@@ -35,10 +37,13 @@ import { CATEGORIAS } from "../constants/constants";
 import type {
   Comanda,
   ComandaItem,
+  AsignacionPlatoPersona,
   ConfiguracionPlato,
+  CuentaPersona,
   GrupoMenu,
   ItemSeleccionado,
   Mesa,
+  PagoMesa,
   OpcionMenu,
   OpcionSeleccionada,
   Plato,
@@ -50,7 +55,6 @@ import {
   calcularTotalComanda,
   calcularTotalSeleccion,
   generarUid,
-  mesaEstaOcupada,
   normalizarNumeroMesa,
   esGrupoCaldosYSopas,
 } from "../utils/utils";
@@ -68,6 +72,8 @@ export function useMesasPage() {
   const [itemsComandas, setItemsComandas] = useState<
     ComandaItem[]
   >([]);
+  const [pagos, setPagos] = useState<PagoMesa[]>([]);
+  const [cuentasPersonas, setCuentasPersonas] = useState<CuentaPersona[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -99,6 +105,13 @@ export function useMesasPage() {
 
   const [dialogoPagoTransferencia, setDialogoPagoTransferencia] =
     useState(false);
+
+  const [dialogoUnirMesas, setDialogoUnirMesas] = useState(false);
+  const [mesaPrincipalId, setMesaPrincipalId] = useState("");
+  const [mesaSecundariaId, setMesaSecundariaId] = useState("");
+  const [uniendoMesas, setUniendoMesas] = useState(false);
+  const [dialogoDividirCuenta, setDialogoDividirCuenta] = useState(false);
+  const [personaCobrandoId, setPersonaCobrandoId] = useState<string | null>(null);
 
   const [montoRecibido, setMontoRecibido] =
     useState("");
@@ -192,6 +205,8 @@ export function useMesasPage() {
       setPlatos(datos.platos);
       setComandas(datos.comandas);
       setItemsComandas(datos.itemsComandas);
+      setPagos(datos.pagos);
+      setCuentasPersonas(datos.cuentasPersonas);
     } catch (err) {
       setError(
         err instanceof Error
@@ -232,6 +247,8 @@ export function useMesasPage() {
         setPlatos(datos.platos);
         setComandas(datos.comandas);
         setItemsComandas(datos.itemsComandas);
+        setPagos(datos.pagos);
+        setCuentasPersonas(datos.cuentasPersonas);
       } catch (err) {
         if (cancelado) return;
   
@@ -255,27 +272,133 @@ export function useMesasPage() {
   }, [router]);
 
   /*
+   * ACTUALIZACIÓN EN TIEMPO REAL
+   */
+  useEffect(() => {
+    let desmontado = false;
+    let temporizador: ReturnType<typeof setTimeout> | undefined;
+    let intervalo: ReturnType<typeof setInterval> | undefined;
+    let actualizando = false;
+
+    const actualizarDatos = async () => {
+      if (desmontado || actualizando || document.visibilityState !== "visible") {
+        return;
+      }
+
+      actualizando = true;
+      try {
+        const datos = await cargarDatosMesas();
+
+        if (desmontado) return;
+
+        setMesas(datos.mesas);
+        setPlatos(datos.platos);
+        setComandas(datos.comandas);
+        setItemsComandas(datos.itemsComandas);
+        setPagos(datos.pagos);
+        setCuentasPersonas(datos.cuentasPersonas);
+      } catch (err) {
+        if (desmontado) return;
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No se pudieron actualizar las mesas.",
+        );
+      } finally {
+        actualizando = false;
+      }
+    };
+
+    // Agrupa los eventos de una misma operación.
+    const programarActualizacion = () => {
+      if (temporizador) clearTimeout(temporizador);
+
+      temporizador = setTimeout(() => {
+        void actualizarDatos();
+      }, 150);
+    };
+
+    const canal = supabase
+      .channel("mesas-tiempo-real")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "comandas" },
+        programarActualizacion,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "comanda_items" },
+        programarActualizacion,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mesas" },
+        programarActualizacion,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pagos" },
+        programarActualizacion,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "comanda_personas" },
+        programarActualizacion,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "comanda_persona_items" },
+        programarActualizacion,
+      )
+      .subscribe();
+
+    // Respaldo si Supabase Realtime aún no entrega eventos en este proyecto.
+    intervalo = setInterval(programarActualizacion, 3000);
+    document.addEventListener("visibilitychange", programarActualizacion);
+
+    return () => {
+      desmontado = true;
+
+      if (temporizador) clearTimeout(temporizador);
+      if (intervalo) clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", programarActualizacion);
+
+      void supabase.removeChannel(canal);
+    };
+  }, []);
+
+  /*
    * ==========================================================
    * HELPERS
    * ==========================================================
    */
 
+  const obtenerMesaPrincipalId = useCallback(
+    (mesaId: string) => mesas.find((mesa) => mesa.id === mesaId)?.unida_a ?? mesaId,
+    [mesas],
+  );
+
   const estaOcupada = useCallback(
-    (mesaId: string) =>
-      mesaEstaOcupada(
-        comandas,
-        mesaId,
-      ),
-    [comandas],
+    (mesaId: string) => {
+      const mesaPrincipalId = obtenerMesaPrincipalId(mesaId);
+      return comandas.some(
+        (comanda) =>
+          comanda.mesa_id === mesaPrincipalId &&
+          comanda.estado === "abierta" &&
+          itemsComandas.some(
+            (item) =>
+              item.comanda_id === comanda.id &&
+              item.item_padre_id === null,
+          ),
+      );
+    },
+    [comandas, itemsComandas, obtenerMesaPrincipalId],
   );
 
   const obtenerComandaMesa = useCallback(
-    (mesaId: string) =>
-      buscarComandaMesa(
-        comandas,
-        mesaId,
-      ),
-    [comandas],
+    (mesaId: string) => buscarComandaMesa(comandas, obtenerMesaPrincipalId(mesaId)),
+    [comandas, obtenerMesaPrincipalId],
   );
 
   const obtenerItemsComanda = useCallback(
@@ -328,6 +451,41 @@ export function useMesasPage() {
     obtenerTotalMesa,
   ]);
 
+  const comandaMesaCajero = mesaDetalleCajero
+    ? obtenerComandaMesa(mesaDetalleCajero.id)
+    : null;
+  const totalPagadoMesaCajero = comandaMesaCajero
+    ? pagos
+        .filter((pago) => pago.comanda_id === comandaMesaCajero.id)
+        .reduce((total, pago) => total + Number(pago.monto), 0)
+    : 0;
+  const saldoPendienteMesaCajero = Math.max(
+    totalMesaCajero - totalPagadoMesaCajero,
+    0,
+  );
+  const cuentasPersonasMesaCajero = comandaMesaCajero
+    ? cuentasPersonas.filter((persona) => persona.comanda_id === comandaMesaCajero.id)
+    : [];
+  const personaCobrando = cuentasPersonasMesaCajero.find(
+    (persona) => persona.id === personaCobrandoId,
+  ) ?? null;
+  const montoParteAnterior = comandaMesaCajero?.division_partes &&
+    cuentasPersonasMesaCajero.length === 0 &&
+    comandaMesaCajero.division_partes_pagadas > 0
+    ? (() => {
+        const partes = comandaMesaCajero.division_partes!;
+        const base = Math.floor(totalMesaCajero / partes);
+        return comandaMesaCajero.division_partes_pagadas + 1 === partes
+          ? totalMesaCajero - base * (partes - 1)
+          : base;
+      })()
+    : 0;
+  const montoSiguienteParte = comandaMesaCajero?.division_partes != null
+    ? cuentasPersonasMesaCajero.length > 0
+      ? (personaCobrando && !personaCobrando.pagada ? personaCobrando.monto_total : 0)
+      : montoParteAnterior
+    : saldoPendienteMesaCajero;
+
   const platosFiltrados = useMemo(() => {
     const texto = busqueda
       .trim()
@@ -338,25 +496,39 @@ export function useMesasPage() {
     }
 
     return platos.filter((plato) =>
-      plato.nombre
-        .toLowerCase()
-        .includes(texto),
+      plato.nombre.toLowerCase().includes(texto),
     );
   }, [platos, busqueda]);
 
-  const platosPorCategoria = useMemo(
-    () =>
-      CATEGORIAS.map((categoria) => ({
-        ...categoria,
-        platos:
-          platosFiltrados.filter(
-            (plato) =>
-              plato.categoria ===
-              categoria.value,
-          ),
-      })),
-    [platosFiltrados],
-  );
+  const platosPorCategoria = useMemo(() => {
+    const categoriasConPlatos: {
+      value: string;
+      label: string;
+      platos: Plato[];
+    }[] = CATEGORIAS.map((categoria) => ({
+      ...categoria,
+      platos: platosFiltrados.filter(
+        (plato) => (plato.categoria ?? "").trim().toLowerCase() === categoria.value,
+      ),
+    }));
+    const platosSinCategoriaConocida = platosFiltrados.filter(
+      (plato) =>
+        !CATEGORIAS.some(
+          (categoria) =>
+            categoria.value === (plato.categoria ?? "").trim().toLowerCase(),
+        ),
+    );
+
+    if (platosSinCategoriaConocida.length > 0) {
+      categoriasConPlatos.push({
+        value: "otros",
+        label: "Otros",
+        platos: platosSinCategoriaConocida,
+      });
+    }
+
+    return categoriasConPlatos;
+  }, [platosFiltrados]);
 
   /*
    * ==========================================================
@@ -366,6 +538,10 @@ export function useMesasPage() {
 
   const abrirConfiguradorPlato =
     async (plato: Plato) => {
+      if (!plato.disponible) {
+        return;
+      }
+
       setError(null);
       setCargandoConfiguracion(true);
       setPlatoConfigurando(plato);
@@ -780,12 +956,29 @@ export function useMesasPage() {
       return;
     }
 
+    if (!obtenerComandaMesa(mesa.id)) {
+      setError("La mesa unida todavía no tiene una cuenta abierta.");
+      return;
+    }
+
+    const mesaPrincipal = mesas.find(
+      (actual) => actual.id === obtenerMesaPrincipalId(mesa.id),
+    ) ?? mesa;
+
     setError(null);
-    setMesaDetalleCajero(mesa);
+    setMesaDetalleCajero(mesaPrincipal);
     setDialogoDetalleCajero(true);
   };
 
-  const abrirPagoEfectivo = () => {
+  const obtenerMontoPersona = (comandaId: string, personaId: string | null) => {
+    if (!personaId) return 0;
+    const persona = cuentasPersonas.find(
+      (actual) => actual.id === personaId && actual.comanda_id === comandaId,
+    );
+    return persona && !persona.pagada ? persona.monto_total : 0;
+  };
+
+  const abrirPagoEfectivo = (personaId?: string) => {
     if (!puedeGestionarCaja || !mesaDetalleCajero) {
       return;
     }
@@ -801,6 +994,19 @@ export function useMesasPage() {
       return;
     }
 
+    const idPersona = personaId ?? personaCobrandoId;
+    const tieneDivisionPorPlatos = cuentasPersonas.some((persona) => persona.comanda_id === comanda.id);
+    const monto = comanda.division_partes !== null && tieneDivisionPorPlatos
+      ? obtenerMontoPersona(comanda.id, idPersona)
+      : montoSiguienteParte;
+    if (monto <= 0) {
+      setError(comanda.division_partes !== null && tieneDivisionPorPlatos
+        ? "Selecciona una persona con pago pendiente."
+        : "La cuenta ya no tiene saldo pendiente.");
+      return;
+    }
+
+    setPersonaCobrandoId(idPersona ?? null);
     setError(null);
     setMontoRecibido("");
     setDialogoPagoEfectivo(true);
@@ -813,9 +1019,10 @@ export function useMesasPage() {
 
     setDialogoPagoEfectivo(false);
     setMontoRecibido("");
+    setPersonaCobrandoId(null);
   };
 
-  const abrirPagoTransferencia = () => {
+  const abrirPagoTransferencia = (personaId?: string) => {
     if (!puedeGestionarCaja || !mesaDetalleCajero) {
       return;
     }
@@ -831,6 +1038,19 @@ export function useMesasPage() {
       return;
     }
 
+    const idPersona = personaId ?? personaCobrandoId;
+    const tieneDivisionPorPlatos = cuentasPersonas.some((persona) => persona.comanda_id === comanda.id);
+    const monto = comanda.division_partes !== null && tieneDivisionPorPlatos
+      ? obtenerMontoPersona(comanda.id, idPersona)
+      : montoSiguienteParte;
+    if (monto <= 0) {
+      setError(comanda.division_partes !== null && tieneDivisionPorPlatos
+        ? "Selecciona una persona con pago pendiente."
+        : "La cuenta ya no tiene saldo pendiente.");
+      return;
+    }
+
+    setPersonaCobrandoId(idPersona ?? null);
     setError(null);
     setDialogoPagoTransferencia(true);
   };
@@ -841,6 +1061,7 @@ export function useMesasPage() {
     }
 
     setDialogoPagoTransferencia(false);
+    setPersonaCobrandoId(null);
   };
 
   const confirmarPagoTransferencia = async () => {
@@ -858,7 +1079,7 @@ export function useMesasPage() {
       return;
     }
 
-    if (totalMesaCajero <= 0) {
+    if (montoSiguienteParte <= 0) {
       setError("La comanda no tiene un total válido para cobrar.");
       return;
     }
@@ -874,10 +1095,24 @@ export function useMesasPage() {
     setPagando(true);
 
     try {
-      await confirmarPagoTransferenciaService(comanda.id);
+      const tieneDivisionPorPlatos = cuentasPersonas.some((persona) => persona.comanda_id === comanda.id);
+      const resultado = comanda.division_partes !== null && tieneDivisionPorPlatos
+        ? await registrarPagoPersona({
+            comandaId: comanda.id,
+            personaId: personaCobrandoId ?? "",
+            metodo: "transferencia",
+          })
+        : await registrarPagoParcial({
+            comandaId: comanda.id,
+            monto: montoSiguienteParte,
+            metodo: "transferencia",
+          });
       setDialogoPagoTransferencia(false);
-      setDialogoDetalleCajero(false);
-      setMesaDetalleCajero(null);
+      setPersonaCobrandoId(null);
+      if (resultado.cerrada) {
+        setDialogoDetalleCajero(false);
+        setMesaDetalleCajero(null);
+      }
       await cargarDatos();
     } catch (err) {
       setError(
@@ -912,9 +1147,9 @@ export function useMesasPage() {
       return;
     }
 
-    if (recibido < totalMesaCajero) {
+    if (recibido < montoSiguienteParte) {
       setError(
-        "El dinero recibido es insuficiente. Total: " + totalMesaCajero,
+        "El dinero recibido es insuficiente. Total: " + montoSiguienteParte,
       );
       return;
     }
@@ -930,11 +1165,27 @@ export function useMesasPage() {
     setPagando(true);
 
     try {
-      await confirmarPagoEfectivoService(comanda.id, recibido);
+      const tieneDivisionPorPlatos = cuentasPersonas.some((persona) => persona.comanda_id === comanda.id);
+      const resultado = comanda.division_partes !== null && tieneDivisionPorPlatos
+        ? await registrarPagoPersona({
+            comandaId: comanda.id,
+            personaId: personaCobrandoId ?? "",
+            metodo: "efectivo",
+            montoRecibido: recibido,
+          })
+        : await registrarPagoParcial({
+            comandaId: comanda.id,
+            monto: montoSiguienteParte,
+            metodo: "efectivo",
+            montoRecibido: recibido,
+          });
       setDialogoPagoEfectivo(false);
       setMontoRecibido("");
-      setDialogoDetalleCajero(false);
-      setMesaDetalleCajero(null);
+      setPersonaCobrandoId(null);
+      if (resultado.cerrada) {
+        setDialogoDetalleCajero(false);
+        setMesaDetalleCajero(null);
+      }
       await cargarDatos();
     } catch (err) {
       setError(
@@ -947,6 +1198,63 @@ export function useMesasPage() {
     }
   };
 
+  const abrirDialogoUnirMesas = () => {
+    if (!puedeGestionarCaja) return;
+    setError(null);
+    setMesaPrincipalId("");
+    setMesaSecundariaId("");
+    setDialogoUnirMesas(true);
+  };
+
+  const unirMesas = async () => {
+    if (!puedeGestionarCaja) return;
+    if (!mesaPrincipalId || !mesaSecundariaId || mesaPrincipalId === mesaSecundariaId) {
+      setError("Selecciona una mesa principal y otra mesa diferente.");
+      return;
+    }
+
+    setError(null);
+    setUniendoMesas(true);
+    try {
+      await unirMesasService(mesaPrincipalId, mesaSecundariaId);
+      setDialogoUnirMesas(false);
+      await cargarDatos();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudieron unir las mesas.");
+    } finally {
+      setUniendoMesas(false);
+    }
+  };
+
+  const abrirDialogoDividirCuenta = () => {
+    if (!puedeGestionarCaja || !comandaMesaCajero) return;
+    setError(null);
+    setDialogoDividirCuenta(true);
+  };
+
+  const configurarDivisionCuenta = async (
+    numeroPersonas: number,
+    asignaciones: AsignacionPlatoPersona[],
+  ) => {
+    if (!comandaMesaCajero) return;
+
+    setError(null);
+    setGuardando(true);
+    try {
+      await configurarDivisionCuentaService(
+        comandaMesaCajero.id,
+        numeroPersonas,
+        asignaciones,
+      );
+      setDialogoDividirCuenta(false);
+      await cargarDatos();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo dividir la cuenta.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   const cerrarDetalleCajero = () => {
     if (pagando) {
       return;
@@ -954,6 +1262,7 @@ export function useMesasPage() {
 
     setDialogoDetalleCajero(false);
     setMesaDetalleCajero(null);
+    setPersonaCobrandoId(null);
   };
 
   /*
@@ -988,7 +1297,11 @@ export function useMesasPage() {
       return;
     }
 
-    setMesaSeleccionada(mesa);
+    const mesaPrincipal = mesas.find(
+      (actual) => actual.id === obtenerMesaPrincipalId(mesa.id),
+    ) ?? mesa;
+
+    setMesaSeleccionada(mesaPrincipal);
     setBusqueda("");
 
     const comanda =
@@ -997,6 +1310,11 @@ export function useMesasPage() {
     if (!comanda) {
       setItemsSeleccionados([]);
       setDialogoAbierto(true);
+      return;
+    }
+
+    if (comanda.division_partes !== null) {
+      setError("La cuenta ya está dividida. El cajero debe completar primero los pagos por persona.");
       return;
     }
 
@@ -1292,7 +1610,7 @@ export function useMesasPage() {
 
     try {
       const resultado = await confirmarComandaService({
-        mesaId: mesaSeleccionada.id,
+        mesaId: obtenerMesaPrincipalId(mesaSeleccionada.id),
         usuarioId: user.id,
         itemsSeleccionados,
         comandaExistente: obtenerComandaMesa(mesaSeleccionada.id),
@@ -1333,6 +1651,11 @@ export function useMesasPage() {
 
     if (!comanda) {
       cerrarDialogo();
+      return;
+    }
+
+    if (comanda.division_partes !== null) {
+      setError("No se puede liberar una comanda después de dividir la cuenta.");
       return;
     }
 
@@ -1380,6 +1703,8 @@ export function useMesasPage() {
     platos,
     comandas,
     itemsComandas,
+    pagos,
+    cuentasPersonas,
 
     loading,
     guardando,
@@ -1401,6 +1726,11 @@ export function useMesasPage() {
     dialogoDetalleCajero,
     dialogoPagoEfectivo,
     dialogoPagoTransferencia,
+    dialogoUnirMesas,
+    mesaPrincipalId,
+    mesaSecundariaId,
+    uniendoMesas,
+    dialogoDividirCuenta,
     montoRecibido,
     pagando,
 
@@ -1421,6 +1751,10 @@ export function useMesasPage() {
 
     total,
     totalMesaCajero,
+    totalPagadoMesaCajero,
+    saldoPendienteMesaCajero,
+    montoSiguienteParte,
+    comandaMesaCajero,
     platosFiltrados,
     platosPorCategoria,
     precioConfigurando,
@@ -1445,6 +1779,14 @@ export function useMesasPage() {
 
     abrirDetalleCajero,
     cerrarDetalleCajero,
+    abrirDialogoUnirMesas,
+    unirMesas,
+    setMesaPrincipalId,
+    setMesaSecundariaId,
+    setDialogoUnirMesas,
+    abrirDialogoDividirCuenta,
+    configurarDivisionCuenta,
+    setDialogoDividirCuenta,
     abrirPagoEfectivo,
     cerrarPagoEfectivo,
     confirmarPagoEfectivo,

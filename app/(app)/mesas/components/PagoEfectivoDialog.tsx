@@ -62,7 +62,7 @@ export function PagoEfectivoDialog({
           </DialogTitle>
 
           <DialogDescription>
-            Ingresa el dinero recibido para cerrar la comanda.
+            Ingresa el dinero recibido por este pago. Si la cuenta está dividida, podrás registrar las partes por separado.
           </DialogDescription>
         </DialogHeader>
 

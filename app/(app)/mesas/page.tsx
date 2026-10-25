@@ -2,6 +2,7 @@
 
 import {
   Plus,
+  GitMerge,
   Loader2,
 } from "lucide-react";
 
@@ -17,6 +18,8 @@ import { PagoEfectivoDialog } from "./components/PagoEfectivoDialog";
 import { ComandaDialog } from "./components/ComandaDialog";
 import { ConfigurarPlatoDialog } from "./components/ConfigurarPlatoDialog";
 import { PagoTransferenciaDialog } from "./components/PagoTransferenciaDialog";
+import { UnirMesasDialog } from "./components/UnirMesasDialog";
+import { DividirCuentaDialog } from "./components/DividirCuentaDialog";
 
 export default function MesasPage() {
   const mesas = useMesasPage();
@@ -55,18 +58,29 @@ export default function MesasPage() {
           </p>
         </div>
 
-        {mesas.esAdmin && (
-          <Button
-            type="button"
-            onClick={
-              mesas.abrirCrearMesa
-            }
-            className="cursor-pointer bg-[#22201D] text-white hover:bg-[#3A3732]"
-          >
-            <Plus size={16} />
-            Nueva mesa
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {mesas.esAdmin && (
+            <Button
+              type="button"
+              onClick={mesas.abrirCrearMesa}
+              className="cursor-pointer bg-[#22201D] text-white hover:bg-[#3A3732]"
+            >
+              <Plus size={16} />
+              Nueva mesa
+            </Button>
+          )}
+          {mesas.puedeGestionarCaja && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={mesas.abrirDialogoUnirMesas}
+              className="cursor-pointer border-[#D8D0C3] bg-white text-[#22201D]"
+            >
+              <GitMerge size={16} />
+              Unir mesas
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* =====================================================
@@ -94,7 +108,7 @@ export default function MesasPage() {
       ===================================================== */}
 
       <div className="flex flex-wrap gap-3 text-xs">
-        <div className="flex items-center gap-2 rounded-full bg-[#E8F1EC] px-3 py-1.5 text-[#2E6B4F]">
+        <div className="flex items-center gap-2 rounded-full  shadow-sm bg-emerald-50 text-emerald-800 p-2">
           <span className="size-2 rounded-full bg-[#2E6B4F]" />
 
           {
@@ -108,8 +122,8 @@ export default function MesasPage() {
           libres
         </div>
 
-        <div className="flex items-center gap-2 rounded-full bg-[#F1EEEA] px-3 py-1.5 text-[#6F695E]">
-          <span className="size-2 rounded-full bg-[#6F695E]" />
+        <div className="flex items-center gap-2 rounded-full shadow-sm  bg-red-50 text-red-800 p-2">
+          <span className="size-2 rounded-full bg-red-500" />
 
           {
             mesas.mesas.filter(
@@ -223,6 +237,12 @@ export default function MesasPage() {
         total={
           mesas.totalMesaCajero
         }
+        pagado={mesas.totalPagadoMesaCajero}
+        pendiente={mesas.saldoPendienteMesaCajero}
+        partes={mesas.comandaMesaCajero?.division_partes ?? null}
+        partesPagadas={mesas.comandaMesaCajero?.division_partes_pagadas ?? 0}
+        cuentasPersonas={mesas.cuentasPersonas.filter((persona) => persona.comanda_id === mesas.comandaMesaCajero?.id)}
+        onDividirCuenta={mesas.abrirDialogoDividirCuenta}
         onClose={
           mesas.cerrarDetalleCajero
         }
@@ -232,6 +252,10 @@ export default function MesasPage() {
         onPagarTransferencia={
           mesas.abrirPagoTransferencia
         }
+        onPagarPersona={(personaId, metodo) => {
+          if (metodo === "efectivo") mesas.abrirPagoEfectivo(personaId);
+          else mesas.abrirPagoTransferencia(personaId);
+        }}
       />
 
       {/* =====================================================
@@ -243,7 +267,7 @@ export default function MesasPage() {
           mesas.dialogoPagoEfectivo
         }
         total={
-          mesas.totalMesaCajero
+          mesas.montoSiguienteParte
         }
         montoRecibido={
           mesas.montoRecibido
@@ -268,12 +292,37 @@ export default function MesasPage() {
 
       <PagoTransferenciaDialog
         open={mesas.dialogoPagoTransferencia}
-        total={mesas.totalMesaCajero}
+        total={mesas.montoSiguienteParte}
         pagando={mesas.pagando}
         onClose={mesas.cerrarPagoTransferencia}
         onConfirmar={() =>
           void mesas.confirmarPagoTransferencia()
         }
+      />
+
+      <UnirMesasDialog
+        open={mesas.dialogoUnirMesas}
+        mesas={mesas.mesas}
+        mesaPrincipalId={mesas.mesaPrincipalId}
+        mesaSecundariaId={mesas.mesaSecundariaId}
+        uniendo={mesas.uniendoMesas}
+        onOpenChange={mesas.setDialogoUnirMesas}
+        onPrincipalChange={mesas.setMesaPrincipalId}
+        onSecundariaChange={mesas.setMesaSecundariaId}
+        onConfirmar={() => void mesas.unirMesas()}
+      />
+
+      <DividirCuentaDialog
+        open={mesas.dialogoDividirCuenta}
+        total={mesas.totalMesaCajero}
+        comandaItems={mesas.mesaDetalleCajero ? mesas.obtenerItemsMesa(mesas.mesaDetalleCajero.id) : []}
+        platos={mesas.platos}
+        cuentasPersonas={mesas.cuentasPersonas.filter((persona) => persona.comanda_id === mesas.comandaMesaCajero?.id)}
+        divisionActiva={mesas.comandaMesaCajero?.division_partes != null}
+        permiteReasignar={mesas.totalPagadoMesaCajero === 0}
+        guardando={mesas.guardando}
+        onOpenChange={mesas.setDialogoDividirCuenta}
+        onConfigurar={(numeroPersonas, asignaciones) => void mesas.configurarDivisionCuenta(numeroPersonas, asignaciones)}
       />
 
       {/* =====================================================
@@ -305,6 +354,7 @@ export default function MesasPage() {
         platosFiltrados={
           mesas.platosFiltrados
         }
+        catalogoTotal={mesas.platos.length}
         busqueda={
           mesas.busqueda
         }

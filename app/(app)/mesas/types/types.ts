@@ -8,6 +8,7 @@ export type Mesa = {
   id: string;
   nombre: string;
   activa: boolean;
+  unida_a: string | null;
 };
 
 export type Plato = {
@@ -23,6 +24,37 @@ export type Comanda = {
   mesa_id: string | null;
   mesero_id: string | null;
   estado: string;
+  division_partes: number | null;
+  division_partes_pagadas: number;
+};
+
+export type PagoMesa = {
+  id: string;
+  comanda_id: string;
+  monto: number;
+  estado: string;
+};
+
+export type CuentaPersona = {
+  id: string;
+  comanda_id: string;
+  numero: number;
+  monto_total: number;
+  pagada: boolean;
+  items: CuentaPersonaItem[];
+};
+
+export type CuentaPersonaItem = {
+  id: string;
+  persona_id: string;
+  comanda_item_id: string;
+  cantidad: number;
+};
+
+export type AsignacionPlatoPersona = {
+  comanda_item_id: string;
+  persona_numero: number;
+  cantidad: number;
 };
 
 export type ComandaItem = {

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import {
   Check,
   Loader2,
@@ -44,6 +46,7 @@ type ComandaDialogProps = {
   items: ItemSeleccionado[];
   categorias: CategoriaPlatos[];
   platosFiltrados: Plato[];
+  catalogoTotal: number;
   busqueda: string;
   total: number;
   guardando: boolean;
@@ -65,6 +68,7 @@ export function ComandaDialog({
   items,
   categorias,
   platosFiltrados,
+  catalogoTotal,
   busqueda,
   total,
   guardando,
@@ -78,6 +82,14 @@ export function ComandaDialog({
   onLiberarMesa,
   onConfirmar,
 }: ComandaDialogProps) {
+  const [vistaMovil, setVistaMovil] = useState<"catalogo" | "comanda">("catalogo");
+
+  useEffect(() => {
+    if (open) {
+      setVistaMovil(items.length > 0 ? "comanda" : "catalogo");
+    }
+  }, [open, mesa?.id, items.length]);
+
   return (
     <Dialog
       open={open}
@@ -87,8 +99,8 @@ export function ComandaDialog({
         }
       }}
     >
-      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 sm:max-w-[950px]">
-        <DialogHeader className="border-b border-[#E4DED3] px-6 py-5">
+      <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:h-[90vh] sm:max-h-[90vh] sm:max-w-[950px]">
+        <DialogHeader className="shrink-0 border-b border-[#E4DED3] px-4 py-3 sm:px-6 sm:py-5">
           <DialogTitle className="text-xl">
             Mesa{" "}
             {mesa
@@ -103,9 +115,40 @@ export function ComandaDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="grid shrink-0 grid-cols-2 gap-1 border-b border-[#E4DED3] bg-[#FAF8F4] p-2 lg:hidden">
+          <button
+            type="button"
+            aria-pressed={vistaMovil === "catalogo"}
+            onClick={() => setVistaMovil("catalogo")}
+            className={`rounded-md px-3 py-2 text-sm font-semibold ${
+              vistaMovil === "catalogo"
+                ? "bg-white text-[#22201D] shadow-sm"
+                : "text-[#777166]"
+            }`}
+          >
+            Platos ({platosFiltrados.length})
+          </button>
+          <button
+            type="button"
+            aria-pressed={vistaMovil === "comanda"}
+            onClick={() => setVistaMovil("comanda")}
+            className={`rounded-md px-3 py-2 text-sm font-semibold ${
+              vistaMovil === "comanda"
+                ? "bg-white text-[#22201D] shadow-sm"
+                : "text-[#777166]"
+            }`}
+          >
+            Comanda ({items.length})
+          </button>
+        </div>
+
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-            <div className="mb-5">
+          <div
+            className={`${
+              vistaMovil === "catalogo" ? "flex" : "hidden"
+            } min-h-0 flex-1 flex-col overflow-hidden px-4 py-3 sm:px-6 sm:py-5 lg:flex`}
+          >
+            <div className="mb-3 shrink-0 sm:mb-5">
               <div className="relative">
                 <Search
                   size={16}
@@ -123,9 +166,13 @@ export function ComandaDialog({
                   className="border-[#E4DED3] pl-9"
                 />
               </div>
+              <p className="mt-2 text-right text-[11px] text-[#8A8375]">
+                {platosFiltrados.length} de {catalogoTotal} platos del catálogo
+              </p>
             </div>
 
-            <div className="flex flex-col gap-7">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
+              <div className="flex flex-col gap-7">
               {categorias.map((categoria) => {
                 if (categoria.platos.length === 0) {
                   return null;
@@ -177,6 +224,11 @@ export function ComandaDialog({
                                     ),
                                   )}
                                 </p>
+                                {!plato.disponible && (
+                                  <p className="mt-1 text-[10px] font-medium text-[#A3402A]">
+                                    No disponible
+                                  </p>
+                                )}
                               </div>
 
                               <div className="ml-4 flex items-center gap-2">
@@ -205,11 +257,14 @@ export function ComandaDialog({
                                 <Button
                                   type="button"
                                   size="icon"
-                                  className="size-7 bg-[#22201D] text-white hover:bg-[#3A3732]"
+                                  disabled={!plato.disponible}
+                                  title={plato.disponible ? "Agregar plato" : "Plato no disponible"}
+                                  className="size-7 bg-[#22201D] text-white hover:bg-[#3A3732] disabled:cursor-not-allowed disabled:bg-[#D8D0C3] disabled:text-[#8A8375]"
                                   onClick={() =>
-                                    onAgregarPlato(
-                                      plato,
-                                    )
+                                    {
+                                      setVistaMovil("comanda");
+                                      void onAgregarPlato(plato);
+                                    }
                                   }
                                 >
                                   <Plus size={14} />
@@ -232,20 +287,28 @@ export function ComandaDialog({
                   />
 
                   <p className="mt-3 text-sm font-medium text-[#22201D]">
-                    No encontramos platos
+                    {catalogoTotal === 0
+                      ? "El catálogo de platos está vacío"
+                      : "No hay platos que coincidan"}
                   </p>
 
                   <p className="mt-1 text-xs text-[#8A8375]">
-                    Prueba con otro término de
-                    búsqueda.
+                    {catalogoTotal === 0
+                      ? "Crea platos desde el módulo Platos para poder agregarlos a esta comanda."
+                      : "Prueba con otro término de búsqueda."}
                   </p>
                 </div>
               )}
+              </div>
             </div>
           </div>
 
-          <div className="flex w-full flex-col border-t border-[#E4DED3] bg-[#FAF8F4] lg:w-[350px] lg:border-l lg:border-t-0">
-            <div className="flex items-center justify-between border-b border-[#E4DED3] px-5 py-4">
+          <div
+            className={`${
+              vistaMovil === "comanda" ? "flex" : "hidden"
+            } min-h-0 w-full flex-1 flex-col border-t border-[#E4DED3] bg-[#FAF8F4] lg:flex lg:w-[350px] lg:flex-none lg:border-l lg:border-t-0`}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-[#E4DED3] px-4 py-3 sm:px-5 sm:py-4">
               <div>
                 <h3 className="text-sm font-semibold text-[#22201D]">
                   Comanda
@@ -265,7 +328,7 @@ export function ComandaDialog({
               />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5 sm:py-4">
               {items.length === 0 ? (
                 <div className="flex h-full min-h-[180px] flex-col items-center justify-center text-center">
                   <Utensils
@@ -278,8 +341,7 @@ export function ComandaDialog({
                   </p>
 
                   <p className="mt-1 max-w-[200px] text-xs text-[#8A8375]">
-                    Selecciona platos para
-                    agregarlos a la comanda.
+                    Elige un plato en el catálogo de la izquierda. Al pulsar + debe aparecer aquí.
                   </p>
                 </div>
               ) : (
@@ -412,7 +474,7 @@ export function ComandaDialog({
               )}
             </div>
 
-            <div className="border-t border-[#E4DED3] px-5 py-4">
+            <div className="shrink-0 border-t border-[#E4DED3] px-4 py-3 sm:px-5 sm:py-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-[#6F695E]">
                   Total
@@ -426,14 +488,14 @@ export function ComandaDialog({
           </div>
         </div>
 
-        <DialogFooter className="border-t border-[#E4DED3] bg-white px-6">
+        <DialogFooter className="shrink-0 border-t border-[#E4DED3] bg-white px-4 py-3 sm:px-6 sm:py-4">
           {mesaOcupada && (
             <Button
               type="button"
-              variant="outline"
               onClick={onLiberarMesa}
               disabled={guardando}
-              className="mr-auto mb-4 cursor-pointer text-[#A3402A] hover:bg-red-500 hover:text-white"
+              variant="outline"
+              className="mr-auto mb-4 cursor-pointer text-[#A3402A] hover:bg-red-500 hover:text-white sm:mr-auto"
             >
               <Trash2 size={15} />
               Liberar mesa
