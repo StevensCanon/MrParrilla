@@ -61,6 +61,10 @@ function fechaHoy(): Date {
   return hoy;
 }
 
+/**
+ * Se renderiza DENTRO de <DashboardHeader>: devuelve los botones de periodo
+ * y, solo en "Personalizado", la fila de fechas (ocupa todo el ancho de la tarjeta).
+ */
 export function DashboardDateFilter({
   fechaExacta,
   fechaDesde,
@@ -115,49 +119,43 @@ export function DashboardDateFilter({
     { valor: "mes", texto: "Este mes" },
   ];
 
-  return (
-    <section className="rounded-2xl border border-[#E7E1D7] bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-[#22201D]">Periodo</h2>
-          <p className="mt-1 text-xs text-[#8A8375]">
-            Filtra las ventas y la operación por fecha.
-          </p>
-        </div>
+  const claseBoton = (activo: boolean) =>
+    `h-10 rounded-xl border px-4 text-sm font-medium transition ${
+      activo
+        ? "border-[#C85C3D] bg-[#FFF0EA] text-[#A3402A]"
+        : "border-[#E7E1D7] bg-white text-[#6F695E] hover:bg-[#F8F6F1]"
+    }`;
 
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-          {opciones.map((opcion) => (
-            <button
-              key={opcion.valor}
-              type="button"
-              onClick={() => aplicarPeriodo(opcion.valor)}
-              aria-pressed={periodo === opcion.valor}
-              className={`h-10 rounded-xl border px-4 text-sm font-medium transition ${
-                periodo === opcion.valor
-                  ? "border-[#C85C3D] bg-[#FFF0EA] text-[#A3402A]"
-                  : "border-[#E7E1D7] bg-white text-[#6F695E] hover:bg-[#F8F6F1]"
-              }`}
-            >
-              {opcion.texto}
-            </button>
-          ))}
+  return (
+    <>
+      <div
+        role="group"
+        aria-label="Periodo"
+        className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap"
+      >
+        {opciones.map((opcion) => (
           <button
+            key={opcion.valor}
             type="button"
-            onClick={() => setPeriodo("personalizado")}
-            aria-pressed={periodo === "personalizado"}
-            className={`h-10 rounded-xl border px-4 text-sm font-medium transition ${
-              periodo === "personalizado"
-                ? "border-[#C85C3D] bg-[#FFF0EA] text-[#A3402A]"
-                : "border-[#E7E1D7] bg-white text-[#6F695E] hover:bg-[#F8F6F1]"
-            }`}
+            onClick={() => aplicarPeriodo(opcion.valor)}
+            aria-pressed={periodo === opcion.valor}
+            className={claseBoton(periodo === opcion.valor)}
           >
-            Personalizado
+            {opcion.texto}
           </button>
-        </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => setPeriodo("personalizado")}
+          aria-pressed={periodo === "personalizado"}
+          className={claseBoton(periodo === "personalizado")}
+        >
+          Personalizado
+        </button>
       </div>
 
       {periodo === "personalizado" && (
-        <div className="mt-4 grid gap-3 border-t border-[#F0ECE5] pt-4 sm:grid-cols-2">
+        <div className="grid gap-3 border-t border-[#F0ECE5] pt-4 sm:basis-full sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-[#6F695E]">
               Fecha exacta
@@ -207,6 +205,6 @@ export function DashboardDateFilter({
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }
