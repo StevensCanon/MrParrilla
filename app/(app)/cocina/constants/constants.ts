@@ -1,10 +1,15 @@
-import type {
-    ColoresColumna,
-    ColoresComanda,
-    TipoColumna,
-  } from "../types/types";
-  
-  export const INTERVALO_ACTUALIZACION = 10_000;
+import type { ColoresColumna, ColoresComanda, EstadoItem, TipoColumna } from "../types/types";
+
+export const COLOR_ESTADO: Record<EstadoItem, string> = {
+  pendiente: "#B3261E",
+  preparando: "#E0A526",
+  listo: "#3D8060",
+};
+
+export const FONDO_PAGINA = "#F4F2ED";
+
+export const UMBRAL_ATRASO_MIN = 15;
+export const INTERVALO_ACTUALIZACION = 10_000;
   
   export const COLORES_COMANDA: Record<
     TipoColumna,
@@ -78,5 +83,9 @@ import type {
     listo: {
       titulo: "Listos",
       descripcion: "Pedidos terminados",
+    
+    
     },
+
+    
   };

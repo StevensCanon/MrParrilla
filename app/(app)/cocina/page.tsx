@@ -4,11 +4,11 @@ import CocinaColumna from "./components/CocinaColumna";
 import CocinaError from "../cocina/components/CocinaError";
 import CocinaHeader from "./components/CocinaHeader";
 import CocinaLoading from "../cocina/components/CocinaLoading";
-import CocinaResumen from "./components/CocinaResumen";
+
 
 import { useCocina } from "./hooks/useCocina";
 
-export default function CocinaPage( ) {
+export default function CocinaPage() {
   const {
     comandasPendientes,
     comandasPreparando,
@@ -27,62 +27,42 @@ export default function CocinaPage( ) {
   }
 
   return (
-    <main className="min-h-screen bg-[#F8F8F6] px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1800px]">
-        <CocinaHeader
-          actualizando={actualizando}
-          onActualizar={actualizar}
-        />
+    <main className="min-h-screen  px-3 py-4 sm:px-5 lg:px-6">
+      <div className="mx-auto w-full max-w-[1920px]">
+        <CocinaHeader actualizando={actualizando} onActualizar={actualizar} />
 
-        {error && (
-          <CocinaError mensaje={error} />
-        )}
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <p className="max-w-xl text-sm leading-5 text-[#6F695E]">
+            Gestiona las preparaciones desde aqui.
+          </p>
+        </div>
 
-        <CocinaResumen
-          pendientes={
-            comandasPendientes.length
-          }
-          preparando={
-            comandasPreparando.length
-          }
-          listas={comandasListas.length}
-        />
 
-        <section className="grid grid-cols-1 items-start gap-5 xl:grid-cols-3">
+        {error && <CocinaError mensaje={error} />}
+
+        <section aria-label="Comandas por estado" className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3 mt-10">
           <CocinaColumna
             tipo="pendiente"
             comandas={comandasPendientes}
             accionando={accionando}
-            onCambiarEstado={
-              cambiarEstadoItem
-            }
-            onArchivar={
-              archivarComanda
-            }
+            onCambiarEstado={cambiarEstadoItem}
+            onArchivar={archivarComanda}
           />
 
           <CocinaColumna
             tipo="preparando"
             comandas={comandasPreparando}
             accionando={accionando}
-            onCambiarEstado={
-              cambiarEstadoItem
-            }
-            onArchivar={
-              archivarComanda
-            }
+            onCambiarEstado={cambiarEstadoItem}
+            onArchivar={archivarComanda}
           />
 
           <CocinaColumna
             tipo="listo"
             comandas={comandasListas}
             accionando={accionando}
-            onCambiarEstado={
-              cambiarEstadoItem
-            }
-            onArchivar={
-              archivarComanda
-            }
+            onCambiarEstado={cambiarEstadoItem}
+            onArchivar={archivarComanda}
           />
         </section>
       </div>

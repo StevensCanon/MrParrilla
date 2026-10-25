@@ -1,118 +1,70 @@
 import {
-    Check,
-    ChefHat,
-    Clock3,
-  } from "lucide-react";
-  
-  import {
-    COLORES_COLUMNA,
-    CONFIGURACION_COLUMNAS,
-  } from "../constants/constants";
-  
-  import type {
-    ComandaCocina,
-    EstadoItem,
-  } from "../types/types";
-  
-  import CocinaComanda from "./CocinaComanda";
-  
-  type CocinaColumnaProps = {
-    tipo: EstadoItem;
-    comandas: ComandaCocina[];
-    accionando: string | null;
-    onCambiarEstado: (
-      itemId: string,
-      estado: "preparando" | "listo",
-    ) => void;
-    onArchivar: (
-      comandaId: string,
-    ) => void;
-  };
-  
-  export default function CocinaColumna({
-    tipo,
-    comandas,
-    accionando,
-    onCambiarEstado,
-    onArchivar,
-  }: CocinaColumnaProps) {
-    const colores =
-      COLORES_COLUMNA[tipo];
-  
-    const configuracion =
-      CONFIGURACION_COLUMNAS[tipo];
-  
-    const Icono =
-      tipo === "pendiente"
-        ? Clock3
-        : tipo === "preparando"
-          ? ChefHat
-          : Check;
-  
-    return (
-      <section
-        className={`flex min-h-[400px] min-w-0 flex-col rounded-2xl border ${colores.fondo} ${colores.borde}`}
+  COLOR_ESTADO,
+  CONFIGURACION_COLUMNAS,
+} from "../constants/constants";
+
+import type { ComandaCocina, EstadoItem } from "../types/types";
+
+import CocinaComanda from "./CocinaComanda";
+
+type CocinaColumnaProps = {
+  tipo: EstadoItem;
+  comandas: ComandaCocina[];
+  accionando: string | null;
+  onCambiarEstado: (itemId: string, estado: "preparando" | "listo") => void;
+  onArchivar: (comandaId: string) => void;
+};
+
+export default function CocinaColumna({
+  tipo,
+  comandas,
+  accionando,
+  onCambiarEstado,
+  onArchivar,
+}: CocinaColumnaProps) {
+  const configuracion = CONFIGURACION_COLUMNAS[tipo];
+  const idTitulo = `columna-${tipo}`;
+
+  return (
+    <section aria-labelledby={idTitulo} className="flex min-w-0 flex-col rounded-2xl border border-[#E7E1D7] bg-white/45 p-2.5 sm:p-3">
+      {/* El punto de color, el título y el conteo son toda la identidad de la columna */}
+      <h2
+        id={idTitulo}
+        className="flex items-center gap-2 border-b border-[#E2DCD0] pb-2 text-sm font-bold text-[#22201D] sm:text-base"
       >
-        <div className="flex items-center justify-between border-b border-inherit px-4 py-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${colores.icono}`}
-            >
-              <Icono className="h-5 w-5" />
-            </div>
-  
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-bold text-gray-900">
-                {configuracion.titulo}
-              </h2>
-  
-              <p className="truncate text-xs text-gray-500">
-                {configuracion.descripcion}
-              </p>
-            </div>
-          </div>
-  
-          <span
-            className={`flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-xs font-bold ${colores.contador}`}
-          >
-            {comandas.length}
-          </span>
-        </div>
-  
-        <div className="flex flex-1 flex-col gap-4 p-3">
-          {comandas.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center py-12 text-center">
-              <div>
-                <div
-                  className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${colores.icono}`}
-                >
-                  <Icono className="h-5 w-5" />
-                </div>
-  
-                <p className="mt-3 text-sm font-medium text-gray-500">
-                  No hay comandas
-                </p>
-  
-                <p className="mt-1 text-xs text-gray-400">
-                  Todo está al día
-                </p>
-              </div>
-            </div>
-          ) : (
-            comandas.map((comanda) => (
+        <span
+          aria-hidden="true"
+          className="size-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: COLOR_ESTADO[tipo] }}
+        />
+        {configuracion.titulo}
+        <span
+          aria-label={`${comandas.length} comandas`}
+          className="ml-auto inline-flex min-w-7 items-center justify-center rounded-full bg-white px-2 py-1 text-xs font-bold tabular-nums text-[#6F695E] shadow-sm"
+        >
+          {comandas.length}
+        </span>
+      </h2>
+
+      {comandas.length === 0 ? (
+        <p className="mt-4 rounded-2xl border border-dashed border-[#D2CBBE] py-10 text-center text-sm text-[#6F695E]">
+          Sin comandas
+        </p>
+      ) : (
+        <ul className="mt-3 flex flex-col gap-3">
+          {comandas.map((comanda) => (
+            <li key={comanda.id}>
               <CocinaComanda
-                key={comanda.id}
                 comanda={comanda}
                 tipo={tipo}
                 accionando={accionando}
-                onCambiarEstado={
-                  onCambiarEstado
-                }
+                onCambiarEstado={onCambiarEstado}
                 onArchivar={onArchivar}
               />
-            ))
-          )}
-        </div>
-      </section>
-    );
-  }
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}

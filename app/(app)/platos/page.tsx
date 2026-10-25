@@ -102,6 +102,18 @@ export default function PlatosPage() {
     paginaActual,
   ]);
 
+  const conteos = useMemo(() => {
+    const texto = busqueda.toLowerCase().trim();
+    const base = platos.filter((p) =>
+      p.nombre.toLowerCase().includes(texto),
+    );
+    const resultado: Record<string, number> = { todas: base.length };
+    for (const p of base) {
+      resultado[p.categoria] = (resultado[p.categoria] ?? 0) + 1;
+    }
+    return resultado;
+  }, [platos, busqueda]);
+
   const rangoInicio =
     platosFiltrados.length === 0
       ? 0
