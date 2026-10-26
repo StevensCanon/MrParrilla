@@ -123,7 +123,7 @@ export function DashboardDateFilter({
     `h-10 rounded-xl border px-4 text-sm font-medium transition ${
       activo
         ? "border-[#C85C3D] bg-[#FFF0EA] text-[#A3402A]"
-        : "border-[#E7E1D7] bg-white text-[#6F695E] hover:bg-[#F8F6F1]"
+        : "border-[#E7E1D7] bg-white text-[#6F695E] hover:bg-white"
     }`;
 
   return (
@@ -155,15 +155,15 @@ export function DashboardDateFilter({
       </div>
 
       {periodo === "personalizado" && (
-        <div className="grid gap-3 border-t border-[#F0ECE5] pt-4 sm:basis-full sm:grid-cols-2">
+        <div className="grid gap-3 border-t border-[#E7E1D7] pt-4 sm:basis-full sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-[#6F695E]">
               Fecha exacta
             </label>
             <Popover>
-              <PopoverTrigger className="flex h-10 w-full items-center rounded-xl border border-[#E7E1D7] bg-white px-3 text-left text-sm text-[#22201D] outline-none transition hover:bg-[#F8F6F1] focus:ring-2 focus:ring-[#F3D7CE]">
-                <CalendarDays size={16} className="mr-2 shrink-0 text-[#C85C3D]" />
-                <span className={fechaExacta ? "" : "text-[#8A8375]"}>
+              <PopoverTrigger className="flex h-10 w-full items-center rounded-xl border border-[#E7E1D7] bg-white px-3 text-left text-sm text-[#22201D] outline-none transition hover:bg-white focus:ring-2 focus:ring-[#F3D7CE]">
+                <CalendarDays size={16} className="mr-2 shrink-0 text-[#A3402A]" />
+                <span className={fechaExacta ? "" : "text-[#6F695E]"}>
                   {fechaExacta ? etiqueta(fechaExacta) : "Seleccionar fecha"}
                 </span>
               </PopoverTrigger>
@@ -183,14 +183,14 @@ export function DashboardDateFilter({
               Rango de fechas
             </label>
             <Popover>
-              <PopoverTrigger className="flex h-10 w-full items-center justify-start rounded-xl border border-[#E7E1D7] bg-white px-3 text-left text-sm text-[#22201D] outline-none transition hover:bg-[#F8F6F1] focus:ring-2 focus:ring-[#F3D7CE]">
-                <CalendarDays size={16} className="mr-2 shrink-0 text-[#C85C3D]" />
+              <PopoverTrigger className="flex h-10 w-full items-center justify-start rounded-xl border border-[#E7E1D7] bg-white px-3 text-left text-sm text-[#22201D] outline-none transition hover:bg-white focus:ring-2 focus:ring-[#F3D7CE]">
+                <CalendarDays size={16} className="mr-2 shrink-0 text-[#A3402A]" />
                 {fechaDesde && fechaHasta ? (
                   <span>{etiqueta(fechaDesde)} – {etiqueta(fechaHasta)}</span>
                 ) : fechaDesde ? (
                   <span>Desde {etiqueta(fechaDesde)}</span>
                 ) : (
-                  <span className="text-[#8A8375]">Seleccionar rango</span>
+                  <span className="text-[#6F695E]">Seleccionar rango</span>
                 )}
               </PopoverTrigger>
               <PopoverContent align="start" className="w-auto rounded-xl p-0">

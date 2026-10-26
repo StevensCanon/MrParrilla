@@ -10,9 +10,9 @@ const config = { ordenes: { label: "Órdenes", color: "#C85C3D" } } satisfies Ch
 export function OrdenesPorDiaChart({ data }: { data: DiaOperativo[] }) {
   return (
     <Card className="overflow-hidden border-[#E7E1D7] bg-white shadow-sm">
-      <CardHeader className="border-b border-[#F0ECE5] px-5 py-4">
-        <CardTitle className="text-base">Órdenes por día</CardTitle>
-        <p className="mt-1 text-xs text-[#918A7E]">Comandas cerradas durante el período</p>
+      <CardHeader className="border-b border-[#E7E1D7] px-5 py-4">
+        <CardTitle className="text-base font-bold">Órdenes por día</CardTitle>
+        <p className="mt-1 text-xs text-[#6F695E]">Comandas cerradas durante el período</p>
       </CardHeader>
       <CardContent className="px-2 pb-4 pt-5 sm:px-5">
         <ChartContainer config={config} className="h-[300px] w-full">

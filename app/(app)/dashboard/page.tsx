@@ -20,7 +20,7 @@ import { useDashboard } from "./hooks/useDashboard";
 const celda = "min-w-0 [&>*]:h-full";
 
 function DashboardSkeleton() {
-  const bloque = "animate-pulse rounded-2xl border border-neutral-200 bg-white";
+  const bloque = "animate-pulse rounded-2xl border border-[#E7E1D7] bg-white";
 
   return (
     <main className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6 lg:p-8">
@@ -55,16 +55,16 @@ function DashboardSkeleton() {
 function DashboardError({ message }: { message: string }) {
   return (
     <main className="flex min-h-[70vh] items-center justify-center p-6">
-      <div className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className="w-full max-w-lg rounded-2xl border border-[#E7E1D7] bg-white p-6 shadow-sm">
         <div className="flex gap-4">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-[#C62828]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FBEDEA] text-[#B3261E]">
             <AlertTriangle size={19} />
           </span>
           <div>
-            <h2 className="font-semibold text-neutral-900">
+            <h2 className="font-semibold text-[#22201D]">
               No se pudo cargar el panel
             </h2>
-            <p className="mt-1 text-sm text-neutral-600">{message}</p>
+            <p className="mt-1 text-sm text-[#6F695E]">{message}</p>
           </div>
         </div>
       </div>

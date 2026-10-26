@@ -31,27 +31,27 @@ function StatCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-neutral-200 p-5 shadow-sm ${
+      className={`rounded-2xl border border-[#E7E1D7] p-5 shadow-sm ${
         destacada
           ? "bg-gradient-to-br from-white via-white to-red-50/70"
           : "bg-white"
       }`}
     >
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-[#C62828]">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FBEDEA] text-[#B3261E]">
           <Icon size={18} />
         </span>
-        <p className="text-sm font-medium text-neutral-600">{title}</p>
+        <p className="text-sm font-medium text-[#6F695E]">{title}</p>
       </div>
 
       <p
         className={`mt-5 truncate text-3xl font-semibold tracking-tight tabular-nums ${
-          negativo ? "text-[#C62828]" : "text-neutral-900"
+          negativo ? "text-[#B3261E]" : "text-[#22201D]"
         }`}
       >
         {value}
       </p>
-      <p className="mt-1 text-sm text-neutral-500">{description}</p>
+      <p className="mt-1 text-sm text-[#6F695E]">{description}</p>
     </div>
   );
 }

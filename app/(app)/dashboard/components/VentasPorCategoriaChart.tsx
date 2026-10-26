@@ -47,17 +47,17 @@ export function VentasPorCategoriaChart({
 
   return (
     <Card className="overflow-hidden border-[#E7E1D7] bg-white shadow-sm">
-      <CardHeader className="border-b border-[#F0ECE5] px-5 py-4">
-        <CardTitle className="text-base">Ventas por categoría</CardTitle>
+      <CardHeader className="border-b border-[#E7E1D7] px-5 py-4">
+        <CardTitle className="text-base font-bold">Ventas por categoría</CardTitle>
 
-        <p className="mt-1 text-xs text-[#918A7E]">
+        <p className="mt-1 text-xs text-[#6F695E]">
           Distribución de ventas de platos
         </p>
       </CardHeader>
 
       <CardContent className="p-5">
         {data.length === 0 ? (
-          <div className="flex h-[260px] items-center justify-center text-sm text-[#9B9488]">
+          <div className="flex h-[260px] items-center justify-center text-sm text-[#6F695E]">
             Sin ventas de platos.
           </div>
         ) : (
@@ -98,11 +98,11 @@ export function VentasPorCategoriaChart({
 
               {/* Total en el centro */}
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#9B9488]">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6F695E]">
                   Total
                 </span>
 
-                <span className="mt-0.5 text-sm font-bold text-[#292621]">
+                <span className="mt-0.5 text-sm font-bold text-[#22201D]">
                   {money(total)}
                 </span>
               </div>
@@ -124,12 +124,12 @@ export function VentasPorCategoriaChart({
                       }}
                     />
 
-                    <span className="capitalize text-[#5F594F]">
+                    <span className="capitalize text-[#22201D]">
                       {item.categoria}
                     </span>
                   </div>
 
-                  <span className="shrink-0 font-semibold text-[#292621]">
+                  <span className="shrink-0 font-semibold text-[#22201D]">
                     {money(item.monto)}
                   </span>
                 </div>

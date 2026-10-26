@@ -1,71 +1,146 @@
 "use client";
 
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { useMemo } from "react";
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+} from "recharts";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+
 import type { HoraPico } from "../hooks/useDashboard";
 
 const config = {
   ordenes: {
     label: "Órdenes",
-    color: "#22201D", // Tono grafito/carbón acorde a la paleta del sistema
+    color: "#22201D",
   },
 } satisfies ChartConfig;
 
+const HORAS_JORNADA = [
+  "07:00",
+  "08:00",
+  "09:00",
+  "10:00",
+  "11:00",
+  "12:00",
+  "13:00",
+  "14:00",
+  "15:00",
+  "16:00",
+  "17:00",
+  "18:00",
+  "19:00",
+];
+
 export function HorasPicoChart({ data }: { data: HoraPico[] }) {
+  // Asegura la secuencia ininterrumpida de 07:00 a 19:00 con 0 en horas vacías
+  const formattedData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+
+    const map = new Map<string, number>();
+    for (const item of data) {
+      // Normaliza formatos tipo "7:00" o "07:00"
+      const horaKey = item.hora.padStart(5, "0");
+      map.set(horaKey, item.ordenes ?? 0);
+    }
+
+    return HORAS_JORNADA.map((hora) => ({
+      hora,
+      ordenes: map.get(hora) ?? 0,
+    }));
+  }, [data]);
+
   return (
     <Card className="overflow-hidden border-[#E7E1D7] bg-white shadow-sm">
-      <CardHeader className="border-b border-[#F0ECE5] px-5 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base font-bold text-[#22201D]">Horas pico</CardTitle>
-            <p className="mt-1 text-xs text-[#918A7E]">Volumen y flujo de órdenes por franja horaria</p>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="px-2 pb-4 pt-5 sm:px-5">
-        {data.length === 0 ? (
-          <p className="py-20 text-center text-sm text-[#9B9488]">Sin datos de operación.</p>
-        ) : (
-          <ChartContainer config={config} className="h-[280px] w-full">
-            <AreaChart data={data} margin={{ top: 12, right: 12, left: -15, bottom: 0 }}>
-              <defs>
-                {/* Degradado vertical sutil */}
-                <linearGradient id="fillOrdenes" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-ordenes)" stopOpacity={0.28} />
-                  <stop offset="95%" stopColor="var(--color-ordenes)" stopOpacity={0.01} />
-                </linearGradient>
-              </defs>
+      <CardHeader className="border-b border-[#E7E1D7] px-5 py-4">
+        <CardTitle className="text-base font-bold text-[#22201D]">
+          Horas pico
+        </CardTitle>
 
-              <CartesianGrid vertical={false} stroke="#ECE7DE" strokeDasharray="4 4" />
-              
-              <XAxis 
-                dataKey="hora" 
-                tickLine={false} 
-                axisLine={false} 
-                tickMargin={10}
-                tick={{ fill: "#918A7E", fontSize: 12 }}
+        <CardDescription className="mt-1 text-xs text-[#6F695E]">
+          Volumen de órdenes por franja horaria (07:00 - 19:00)
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="px-2 pb-4 pt-5 sm:px-5">
+        {formattedData.length === 0 ? (
+          <p className="py-20 text-center text-sm text-[#6F695E]">
+            Sin datos de operación.
+          </p>
+        ) : (
+          <ChartContainer
+            config={config}
+            className="mx-auto h-[320px] w-full max-w-[440px]"
+          >
+            <RadarChart
+              data={formattedData}
+              accessibilityLayer
+              margin={{ top: 16, right: 28, bottom: 16, left: 28 }}
+            >
+              <PolarGrid stroke="#ECE7DE" />
+
+              <PolarAngleAxis
+                dataKey="hora"
+                tickLine={false}
+                tick={{ fill: "#918A7E", fontSize: 10 }}
               />
-              
-              <YAxis 
-                allowDecimals={false} 
-                tickLine={false} 
-                axisLine={false} 
-                width={35}
-                tick={{ fill: "#918A7E", fontSize: 12 }}
+
+              <PolarRadiusAxis
+                angle={90}
+                domain={[0, "auto"]}
+                tickLine={false}
+                axisLine={false}
+                allowDecimals={false}
+                tick={false}
               />
-              
-              <ChartTooltip 
-                cursor={{ stroke: "#D8D0C3", strokeWidth: 1, strokeDasharray: "3 3" }} 
-                content={<ChartTooltipContent indicator="line" />} 
+
+              <ChartTooltip
+                cursor={false}
+                content={
+                  <ChartTooltipContent
+                    indicator="line"
+                    formatter={(value) => (
+                      <div className="flex min-w-[100px] items-center justify-between gap-3">
+                        <span>Órdenes</span>
+                        <span className="font-mono font-medium">
+                          {Number(value).toLocaleString("es-CO")}
+                        </span>
+                      </div>
+                    )}
+                  />
+                }
               />
-              
-              <Area
-                type="natural"
+
+              <Radar
                 dataKey="ordenes"
+                name="Órdenes"
                 stroke="var(--color-ordenes)"
-                strokeWidth={2.5}
-                fill="url(#fillOrdenes)"
+                fill="var(--color-ordenes)"
+                fillOpacity={0.18}
+                strokeWidth={2}
+                dot={{
+                  r: 3,
+                  fill: "var(--color-ordenes)",
+                  stroke: "#FFFFFF",
+                  strokeWidth: 1.5,
+                }}
                 activeDot={{
                   r: 5,
                   fill: "var(--color-ordenes)",
@@ -73,7 +148,7 @@ export function HorasPicoChart({ data }: { data: HoraPico[] }) {
                   strokeWidth: 2,
                 }}
               />
-            </AreaChart>
+            </RadarChart>
           </ChartContainer>
         )}
       </CardContent>
